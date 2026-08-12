@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getPingRecords } from "@/api/connect";
 
 type PingSummaryItem = {
   name: string;
@@ -79,14 +80,11 @@ export function usePingSummary(uuid?: string, hours = 1) {
     });
     const controller = new AbortController();
 
-    fetch(`/api/records/ping?uuid=${uuid}&hours=${hours}`, {
-      signal: controller.signal,
-    })
-      .then((res) => res.json())
-      .then((resp: PingApiResp) => {
+    getPingRecords([uuid], hours, [], controller.signal)
+      .then((resp) => {
         if (!active) return;
-        const records = resp?.data?.records ?? [];
-        const tasks = resp?.data?.tasks ?? [];
+        const records = resp.records;
+        const tasks = resp.tasks;
         const sorted = [...records].sort(
           (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()
         );

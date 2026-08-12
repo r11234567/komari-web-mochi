@@ -2,9 +2,9 @@
     "name": "Komari Web Mochi",
     "short": "Mochi", 
     "description": "Another Komari Web Theme",
-    "version": "1.1.8",
+    "version": "1.1.9",
     "author": "Mochi DEV Team",
-    "url": "https://github.com/svnmoe/komari-web-mochi",
+    "url": "https://github.com/r11234567/komari-web-mochi",
     "preview": "preview.png",
     "configuration":{
         "type":"managed",

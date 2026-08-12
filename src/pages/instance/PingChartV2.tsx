@@ -13,7 +13,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 import { cutPeakValues, interpolateNullsLinear } from "@/utils/RecordHelper";
 import Tips from "@/components/ui/tips";
 import { Eye, EyeOff } from "lucide-react";
-import { useRPC2Call } from "@/contexts/RPC2Context";
+import { getPingRecords } from "@/api/connect";
+import { buildTimeRanges } from "@/utils/timeRanges";
 
 interface PingRecord {
   client: string;
@@ -36,8 +37,6 @@ interface TaskInfo {
   total?: number;
   type?: string;
 }
-// 移除旧的 REST API 响应类型，改用 RPC2 返回结构
-
 //const MAX_POINTS = 1000;
 const colors = [
   "var(--red-9)",
@@ -53,55 +52,9 @@ const colors = [
 const PingChart = ({ uuid }: { uuid: string }) => {
   const { t } = useTranslation();
   const { publicInfo } = usePublicInfo();
-  const { call } = useRPC2Call();
   const max_record_preserve_time = publicInfo?.ping_record_preserve_time || 0;
   const avaliableView = useMemo(() => {
-    // 视图选项
-    const presetViews = [
-      { label: t("chart.hours", { count: 1 }), hours: 1 },
-      { label: t("chart.hours", { count: 6 }), hours: 6 },
-      { label: t("chart.hours", { count: 12 }), hours: 12 },
-      { label: t("chart.days", { count: 1 }), hours: 24 },
-    ];
-    const views: { label: string; hours?: number }[] = [];
-    if (
-      typeof max_record_preserve_time === "number" &&
-      max_record_preserve_time > 0
-    ) {
-      for (const v of presetViews) {
-        if (max_record_preserve_time >= v.hours) {
-          views.push({ label: v.label, hours: v.hours });
-        }
-      }
-      const maxPreset = presetViews[presetViews.length - 1];
-      if (max_record_preserve_time > maxPreset.hours) {
-        const dynamicLabel =
-          max_record_preserve_time % 24 === 0
-            ? `${t("chart.days", {
-                count: Math.floor(max_record_preserve_time / 24),
-              })}`
-            : `${t("chart.hours", { count: max_record_preserve_time })}`;
-        views.push({
-          label: dynamicLabel,
-          hours: max_record_preserve_time,
-        });
-      } else if (
-        max_record_preserve_time > 1 &&
-        !presetViews.some((v) => v.hours === max_record_preserve_time)
-      ) {
-        const dynamicLabel =
-          max_record_preserve_time % 24 === 0
-            ? `${t("chart.days", {
-                count: Math.floor(max_record_preserve_time / 24),
-              })}`
-            : `${t("chart.hours", { count: max_record_preserve_time })}`;
-        views.push({
-          label: dynamicLabel,
-          hours: max_record_preserve_time,
-        });
-      }
-    }
-    return views;
+    return buildTimeRanges(max_record_preserve_time, t);
   }, [max_record_preserve_time, t]);
 
   // 默认视图设为1小时
@@ -132,7 +85,6 @@ const PingChart = ({ uuid }: { uuid: string }) => {
     }
   }, [view, avaliableView]);
 
-  // 拉取历史数据（改为 RPC2: common:getRecords）
   useEffect(() => {
     if (!uuid) return;
     if (!hours) {
@@ -151,19 +103,8 @@ const PingChart = ({ uuid }: { uuid: string }) => {
     const controller = new AbortController();
     (async () => {
       try {
-        type RpcResp = {
-          count: number;
-          records: PingRecord[];
-          tasks?: TaskInfo[];
-          from?: string;
-          to?: string;
-        };
-        const result = await call<any, RpcResp>("common:getRecords", {
-          uuid,
-          type: "ping",
-          hours,
-        });
-        const records = result?.records || [];
+        const result = await getPingRecords([uuid], hours, [], controller.signal);
+        const records = result.records;
         records.sort(
           (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()
         );
@@ -179,7 +120,7 @@ const PingChart = ({ uuid }: { uuid: string }) => {
       cancelAnimationFrame(frame);
       controller.abort();
     };
-  }, [call, hours, uuid]); // Depend on hours
+  }, [hours, uuid]);
 
   const midData = useMemo(() => {
     // 与 Mini 保持一致：只使用合并抖动后的真实锚点，并截取到最后 hours 窗口范围。

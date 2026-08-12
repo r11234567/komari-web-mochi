@@ -16,6 +16,8 @@ import fillMissingTimePoints, { type RecordFormat } from "@/utils/RecordHelper";
 import { usePublicInfo } from "@/contexts/PublicInfoContext";
 import Loading from "@/components/loading";
 import "./MobileChart.css";
+import { getLoadRecords } from "@/api/connect";
+import { buildTimeRanges } from "@/utils/timeRanges";
 
 interface MobileLoadChartProps {
   data: RecordFormat[];
@@ -41,38 +43,7 @@ export const MobileLoadChart: React.FC<MobileLoadChartProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const memoizedAvailableView = useMemo(() => {
-    // 计算可用视图 - 固定显示：实时、1小时、6小时、24小时
-    const presetViews = [
-      { label: t("chart.hours", { count: 1 }), hours: 1 },
-      { label: t("chart.hours", { count: 6 }), hours: 6 },
-      { label: t("chart.days", { count: 1 }), hours: 24 },
-    ];
-
-    const availableView: { label: string; hours?: number }[] = [
-      { label: t("common.real_time") },
-    ];
-
-    if (typeof max_record_preserve_time === "number" && max_record_preserve_time > 0) {
-      // 添加预设视图
-      for (const v of presetViews) {
-        if (max_record_preserve_time >= v.hours) {
-          availableView.push({ label: v.label, hours: v.hours });
-        }
-      }
-
-      // 如果最大保存时间大于24小时且不在预设中，添加最大保存时间选项
-      if (
-        max_record_preserve_time > 24 &&
-        !presetViews.some(v => v.hours === max_record_preserve_time)
-      ) {
-        availableView.push({
-          label: t("chart.hours", { count: max_record_preserve_time }),
-          hours: max_record_preserve_time,
-        });
-      }
-    }
-
-    return availableView;
+    return buildTimeRanges(max_record_preserve_time, t, true);
   }, [max_record_preserve_time, t]);
 
   // 使用 ref 来存储请求控制器
@@ -116,15 +87,9 @@ export const MobileLoadChart: React.FC<MobileLoadChartProps> = ({
     
     // 添加延迟以避免频繁请求
     const timeoutId = setTimeout(() => {
-      fetch(`/api/records/load?uuid=${uuid}&hours=${selected.hours}`, {
-        signal: controller.signal
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error(res.statusText);
-          return res.json();
-        })
-        .then((resp) => {
-          const records = resp.data?.records || [];
+      getLoadRecords([uuid], selected.hours, controller.signal)
+        .then((result) => {
+          const records = result[uuid] || [];
           records.sort(
             (a: RecordFormat, b: RecordFormat) =>
               new Date(a.time).getTime() - new Date(b.time).getTime()

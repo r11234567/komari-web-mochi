@@ -736,7 +736,7 @@
     "mode": "Mode Tampilan"
   },
   "warn_https": "Koneksi saat ini bukan HTTPS! Data sensitif Anda berisiko. Amankan koneksi sekarang! Fitur salin mungkin tidak tersedia!",
-  "warn_websocket": "Permintaan RPC2 gagal, periksa koneksi jaringan atau status server!",
+  "warn_websocket": "Aliran status langsung tidak terhubung, periksa koneksi jaringan atau status server!",
   "statusBar": {
     "forceShowTrafficText": "Show up/down traffic in Modern view"
   },

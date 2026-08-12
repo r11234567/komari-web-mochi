@@ -1,6 +1,6 @@
 {
   "warn_https": "The current connection is not HTTPS! Your sensitive data is at serious risk. Take immediate action to secure the connection! Copy may not available!",
-  "warn_websocket": "RPC2 interface is not connected",
+  "warn_websocket": "Live status stream is not connected",
   "delete": "Delete",
   "account": {
     "title": "Account",

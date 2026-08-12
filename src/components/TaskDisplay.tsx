@@ -33,6 +33,8 @@ import fillMissingTimePoints, {
 } from "@/utils/RecordHelper";
 import Flag from "@/components/Flag";
 import { formatBytes, getTrafficPercentage } from "@/utils/formatHelper";
+import { getLoadRecords, getPingRecords } from "@/api/connect";
+import { buildTimeRanges } from "@/utils/timeRanges";
 import "@/styles/chart-fix.css";
 
 interface PingRecord {
@@ -276,58 +278,9 @@ const TaskDisplay: React.FC<TaskDisplayProps> = ({ nodes, liveData }) => {
   }, [onlineNodesKey, nodes]);
 
   // Time range selection
-  const presetViews = taskMode === "ping" 
-    ? [
-        { label: t("chart.hours", { count: 1 }), hours: 1 },
-        { label: t("chart.hours", { count: 6 }), hours: 6 },
-        { label: t("chart.hours", { count: 12 }), hours: 12 },
-        { label: t("chart.days", { count: 1 }), hours: 24 },
-        { label: t("chart.days", { count: 7 }), hours: 168 },
-      ]
-    : [
-        { label: t("chart.hours", { count: 4 }), hours: 4 },
-        { label: t("chart.days", { count: 1 }), hours: 24 },
-        { label: t("chart.days", { count: 7 }), hours: 168 },
-        { label: t("chart.days", { count: 30 }), hours: 720 },
-      ];
-  
   const maxPreserveTime = taskMode === "ping" ? max_ping_record_preserve_time : max_record_preserve_time;
-  const availableViews: { label: string; hours: number }[] = [];
-  
-  if (typeof maxPreserveTime === "number" && maxPreserveTime > 0) {
-    // Add preset views that are within the preserve time limit
-    for (const v of presetViews) {
-      if (v.hours <= maxPreserveTime) {
-        availableViews.push({ label: v.label, hours: v.hours });
-      }
-    }
-    
-    // If preserve time is greater than the last preset (30 days/720 hours for load mode),
-    // add it as an additional option
-    const maxPreset = presetViews[presetViews.length - 1];
-    if (maxPreserveTime > maxPreset.hours) {
-      // Add the actual preserve time as an option
-      const days = Math.floor(maxPreserveTime / 24);
-      const hours = maxPreserveTime % 24;
-      let label: string;
-      
-      if (days > 0 && hours === 0) {
-        label = t("chart.days", { count: days });
-      } else if (days > 0 && hours > 0) {
-        label = `${days}d ${hours}h`;
-      } else {
-        label = t("chart.hours", { count: maxPreserveTime });
-      }
-      
-      availableViews.push({
-        label,
-        hours: maxPreserveTime,
-      });
-    }
-  } else {
-    // If no preserve time is set, show all preset views
-    availableViews.push(...presetViews);
-  }
+  const availableViews = buildTimeRanges(maxPreserveTime, t)
+    .filter((view): view is { label: string; hours: number } => view.hours !== undefined);
   
   const initialView = availableViews.find((v) => v.hours === (taskMode === "ping" ? 6 : 24)) || availableViews[0];
   const [viewHours, setViewHours] = useState(initialView?.hours || 6);
@@ -339,81 +292,13 @@ const TaskDisplay: React.FC<TaskDisplayProps> = ({ nodes, liveData }) => {
     setLoading(true);
     setError(null);
     
-    // Try new global API first
-    fetch('/api/task/ping')
-      .then(res => {
-        if (!res.ok) {
-          throw new Error(`Global API failed with status: ${res.status}`);
-        }
-        return res.json();
+    getPingRecords(nodes.map((node) => node.uuid), 1)
+      .then((result) => {
+        setTasks(result.tasks);
+        if (!selectedTaskId && result.tasks[0]) setSelectedTaskId(result.tasks[0].id);
       })
-      .then(resp => {
-        const taskList = resp?.data || [];
-        if (Array.isArray(taskList) && taskList.length > 0) {
-          // Filter tasks that have at least one client from our nodes
-          const nodeUuids = nodes.map(n => n.uuid);
-          const relevantTasks = taskList.filter((task: any) => 
-            !task.clients || task.clients.length === 0 || 
-            task.clients.some((clientId: string) => nodeUuids.includes(clientId))
-          );
-          
-          if (relevantTasks.length > 0) {
-            setTasks(relevantTasks);
-            if (!selectedTaskId) {
-              setSelectedTaskId(relevantTasks[0].id);
-            }
-            setLoading(false);
-          } else {
-            throw new Error("No relevant tasks for current nodes");
-          }
-        } else {
-          throw new Error("Empty task list from global API");
-        }
-      })
-      .catch(globalErr => {
-        console.log("Global task API failed, falling back to node-based fetch:", globalErr.message);
-        
-        // Fallback: Fetch tasks directly from nodes
-        const taskPromises = nodes.map(node => 
-          fetch(`/api/records/ping?uuid=${node.uuid}&hours=1`)
-            .then(res => res.ok ? res.json() : null)
-            .then(resp => resp?.data?.tasks || [])
-            .catch(() => [])
-        );
-        
-        Promise.all(taskPromises)
-          .then(allTaskLists => {
-            const taskMap = new Map<number, TaskInfo>();
-            
-            allTaskLists.forEach(taskList => {
-              if (Array.isArray(taskList)) {
-                taskList.forEach((task: TaskInfo) => {
-                  if (task && task.id && !taskMap.has(task.id)) {
-                    taskMap.set(task.id, task);
-                  }
-                });
-              }
-            });
-            
-            const mergedTasks = Array.from(taskMap.values()).sort((a, b) => a.id - b.id);
-            
-            if (mergedTasks.length > 0) {
-              setTasks(mergedTasks);
-              if (!selectedTaskId) {
-                setSelectedTaskId(mergedTasks[0].id);
-              }
-              setLoading(false);
-            } else {
-              // No tasks found
-              setError("No ping tasks configured");
-              setLoading(false);
-            }
-          })
-          .catch(() => {
-            setError("Failed to fetch ping tasks");
-            setLoading(false);
-          });
-      });
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to fetch ping tasks"))
+      .finally(() => setLoading(false));
   }, [taskMode, nodesKey]);
 
   // Fetch ping data
@@ -422,104 +307,20 @@ const TaskDisplay: React.FC<TaskDisplayProps> = ({ nodes, liveData }) => {
     
     setLoading(true);
     
-    // Try new task_id based API first
-    fetch(`/api/records/ping?task_id=${selectedTaskId}&hours=${viewHours}`)
-      .then(res => {
-        if (!res.ok) {
-          throw new Error(`Task-based API failed with status: ${res.status}`);
-        }
-        return res.json();
-      })
-      .then(resp => {
-        const records = resp?.data?.records || [];
-        const basicInfo = resp?.data?.basic_info || [];
-        
-        // Process records - they already have client field
-        const newData: Record<number, PingRecord[]> = {};
-        if (records.length > 0) {
-          newData[selectedTaskId] = records;
-        }
-        
-        // Process basic_info for statistics
-        const allLossRates: Record<string, number> = {};
+    getPingRecords(nodes.map((node) => node.uuid), viewHours, [selectedTaskId])
+      .then((result) => {
+        setTaskData(result.records.length ? { [selectedTaskId]: result.records } : {});
+        const lossRates: Record<string, number> = {};
         const serverStats: Record<string, any> = {};
-        
-        basicInfo.forEach((info: any) => {
-          if (info.client) {
-            // Store loss rate
-            if (typeof info.loss === 'number') {
-              allLossRates[`${info.client}_${selectedTaskId}`] = info.loss;
-            }
-            // Store server statistics
-            serverStats[info.client] = {
-              loss: info.loss,
-              min: info.min,
-              max: info.max
-            };
-          }
-        });
-        
-        setTaskData(newData);
-        setTaskLossRates(allLossRates);
+        for (const stat of result.stats.values()) {
+          lossRates[`${stat.agentId}_${selectedTaskId}`] = stat.lossPercent;
+          serverStats[stat.agentId] = { loss: stat.lossPercent, min: stat.minimum, max: stat.maximum };
+        }
+        setTaskLossRates(lossRates);
         setServerPingStats(serverStats);
-        setLoading(false);
       })
-      .catch(taskErr => {
-        console.log("Task-based API failed, falling back to UUID-based fetch:", taskErr.message);
-        
-        // Fallback: Original UUID-based fetching
-        const promises = nodes.map(node => 
-          fetch(`/api/records/ping?uuid=${node.uuid}&hours=${viewHours}`)
-            .then(res => res.ok ? res.json() : null)
-            .then(resp => {
-              const tasks = resp?.data?.tasks || [];
-              const lossRates: Record<string, number> = {};
-              tasks.forEach((task: TaskInfo) => {
-                if (task.id && typeof task.loss === 'number') {
-                  lossRates[`${node.uuid}_${task.id}`] = task.loss;
-                }
-              });
-              
-              return {
-                nodeId: node.uuid,
-                records: resp?.data?.records?.filter((r: PingRecord) => r.task_id === selectedTaskId) || [],
-                lossRates
-              };
-            })
-            .catch(() => ({ nodeId: node.uuid, records: [], lossRates: {} }))
-        );
-        
-        Promise.all(promises)
-          .then(results => {
-            const newData: Record<number, PingRecord[]> = {};
-            const allLossRates: Record<string, number> = {};
-            
-            results.forEach(result => {
-              Object.assign(allLossRates, result.lossRates);
-              
-              if (result.records.length > 0) {
-                result.records.forEach((record: PingRecord) => {
-                  if (!newData[selectedTaskId]) {
-                    newData[selectedTaskId] = [];
-                  }
-                  newData[selectedTaskId].push({
-                    ...record,
-                    client: result.nodeId
-                  });
-                });
-              }
-            });
-            
-            setTaskData(newData);
-            setTaskLossRates(allLossRates);
-            setServerPingStats({}); // Clear server stats when using fallback
-            setLoading(false);
-          })
-          .catch(err => {
-            console.error("Error fetching ping data:", err);
-            setLoading(false);
-          });
-      });
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to fetch ping data"))
+      .finally(() => setLoading(false));
   }, [taskMode, selectedTaskId, nodesKey, viewHours]);
 
   // Fetch load data
@@ -527,33 +328,10 @@ const TaskDisplay: React.FC<TaskDisplayProps> = ({ nodes, liveData }) => {
     if (taskMode !== "load" || !nodes || nodes.length === 0 || selectedMetrics.length === 0) return;
     
     setLoading(true);
-    const promises = nodes.map(node => 
-      fetch(`/api/records/load?uuid=${node.uuid}&hours=${viewHours}`)
-        .then(res => res.ok ? res.json() : null)
-        .then(resp => ({
-          nodeId: node.uuid,
-          records: resp?.data?.records || []
-        }))
-        .catch(() => ({ nodeId: node.uuid, records: [] }))
-    );
-    
-    Promise.all(promises)
-      .then(results => {
-        const newData: Record<string, LoadRecord[]> = {};
-        
-        results.forEach(result => {
-          if (result.records.length > 0) {
-            newData[result.nodeId] = result.records;
-          }
-        });
-        
-        setLoadData(newData);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Error fetching load data:", err);
-        setLoading(false);
-      });
+    getLoadRecords(nodes.map((node) => node.uuid), viewHours)
+      .then((result) => setLoadData(result))
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to fetch load data"))
+      .finally(() => setLoading(false));
   }, [taskMode, nodesKey, viewHours, selectedMetrics]);
 
   // Process chart data

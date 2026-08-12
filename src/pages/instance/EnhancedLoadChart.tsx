@@ -21,6 +21,8 @@ import { usePublicInfo } from "@/contexts/PublicInfoContext";
 import Loading from "@/components/loading";
 import { Cpu, HardDrive, Server, Network, Activity, Link } from "lucide-react";
 import "@/components/DesktopChart.css";
+import { getLoadRecords } from "@/api/connect";
+import { buildTimeRanges } from "@/utils/timeRanges";
 
 type EnhancedLoadChartProps = {
   data: RecordFormat[];
@@ -42,37 +44,7 @@ const EnhancedLoadChart = ({ data = [] }: EnhancedLoadChartProps) => {
   const [connectNulls, setConnectNulls] = useState(true);
 
   const availableView = useMemo(() => {
-    // 计算可用视图
-    const presetViews = [
-      { label: t("chart.hours", { count: 1 }), hours: 1 },
-      { label: t("chart.hours", { count: 6 }), hours: 6 },
-      { label: t("chart.days", { count: 1 }), hours: 24 },
-      { label: t("chart.days", { count: 7 }), hours: 168 },
-    ];
-
-    const views: { label: string; hours?: number }[] = [
-      { label: t("common.real_time") },
-    ];
-
-    if (typeof max_record_preserve_time === "number" && max_record_preserve_time > 0) {
-      for (const v of presetViews) {
-        if (max_record_preserve_time >= v.hours) {
-          views.push({ label: v.label, hours: v.hours });
-        }
-      }
-
-      if (
-        max_record_preserve_time > 168 &&
-        !presetViews.some(v => v.hours === max_record_preserve_time)
-      ) {
-        views.push({
-          label: t("chart.hours", { count: max_record_preserve_time }),
-          hours: max_record_preserve_time,
-        });
-      }
-    }
-
-    return views;
+    return buildTimeRanges(max_record_preserve_time, t, true);
   }, [max_record_preserve_time, t]);
 
   // 获取历史数据
@@ -95,13 +67,9 @@ const EnhancedLoadChart = ({ data = [] }: EnhancedLoadChartProps) => {
     });
     
     const timeoutId = setTimeout(() => {
-      fetch(`/api/records/load?uuid=${uuid}&hours=${selected.hours}`)
-        .then((res) => {
-          if (!res.ok) throw new Error(res.statusText);
-          return res.json();
-        })
-        .then((resp) => {
-          const records = resp.data?.records || [];
+      getLoadRecords([uuid], selected.hours)
+        .then((result) => {
+          const records = result[uuid] || [];
           records.sort(
             (a: RecordFormat, b: RecordFormat) =>
               new Date(a.time).getTime() - new Date(b.time).getTime()

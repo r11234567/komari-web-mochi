@@ -25,7 +25,6 @@ import { OfflineIndicator } from "./components/OfflineIndicator";
 import { Toaster } from "./components/ui/sonner";
 import { useHtmlLang } from "./hooks/useHtmlLang";
 import { CustomStyleInjector } from "./components/CustomStyleInjector";
-import { RPC2Provider } from "./contexts/RPC2Context";
 
 const PRELOAD_RECOVERY_KEY = "mochi:preload-recovered";
 
@@ -84,16 +83,14 @@ const App = () => {
             minHeight: "100vh",
           }}
         >
-          <RPC2Provider>
-            <PublicInfoProvider>
-              <CustomStyleInjector />
-              <Toaster />
-              <OfflineIndicator />
-              {routing}
-              <PWAInstallPrompt />
-              <PWAUpdatePrompt />
-            </PublicInfoProvider>
-          </RPC2Provider>
+          <PublicInfoProvider>
+            <CustomStyleInjector />
+            <Toaster />
+            <OfflineIndicator />
+            {routing}
+            <PWAInstallPrompt />
+            <PWAUpdatePrompt />
+          </PublicInfoProvider>
         </Theme>
       </ThemeContext.Provider>
     </Suspense>

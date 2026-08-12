@@ -36,12 +36,6 @@ export default function InstancePage() {
   const versionLabel = node?.version || "-";
   const statusText = isOnline ? t("nodeCard.online") : t("nodeCard.offline");
 
-  useEffect(() => {
-    fetch(`/api/recent/${uuid}`)
-      .then((res) => res.json())
-      .then((data) => setRecent(data.data.slice(-length)))
-      .catch((err) => console.error("Failed to fetch recent data:", err));
-  }, [length, uuid]);
   // 动态追加数据
   useEffect(() => {
     const unsubscribe = onRefresh((resp) => {

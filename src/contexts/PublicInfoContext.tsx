@@ -1,4 +1,5 @@
 import React from "react";
+import { getPublicInfo } from "@/api/connect";
 
 export interface PublicInfo {
   allow_cors: boolean;
@@ -67,20 +68,8 @@ export const PublicInfoProvider: React.FC<{ children: React.ReactNode }> = ({
   const refresh = () => {
     setError(null);
     setIsLoading(true);
-    fetch("/api/public")
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Failed to fetch public info");
-        }
-        return response.json();
-      })
-      .then((resp: Response) => {
-        if (resp && resp.data) {
-          setPublicInfo(resp.data);
-        } else {
-          setPublicInfo(null);
-        }
-      })
+    getPublicInfo()
+      .then(setPublicInfo)
       .catch((err) => {
         setError(err.message || "An error occurred while fetching public info");
       })
