@@ -60,6 +60,7 @@ const EnhancedLoadChart = ({ data = [] }: EnhancedLoadChartProps) => {
       });
       return () => cancelAnimationFrame(frame);
     }
+    const selectedHours = selected.hours;
     
     const frame = requestAnimationFrame(() => {
       setLoading(true);
@@ -67,7 +68,7 @@ const EnhancedLoadChart = ({ data = [] }: EnhancedLoadChartProps) => {
     });
     
     const timeoutId = setTimeout(() => {
-      getLoadRecords([uuid], selected.hours)
+      getLoadRecords([uuid], selectedHours)
         .then((result) => {
           const records = result[uuid] || [];
           records.sort(

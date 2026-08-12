@@ -40,13 +40,6 @@ export interface PublicInfo {
   [property: string]: any;
 }
 
-interface Response {
-  data: PublicInfo;
-  message: string;
-  status: string;
-  [property: string]: any;
-}
-
 interface PublicInfoContextType {
   publicInfo: PublicInfo | null;
   isLoading: boolean;

@@ -4,7 +4,7 @@ import { Flex, Card, Switch, Button, Text, SegmentedControl, Box } from "@radix-
 import { usePublicInfo } from "@/contexts/PublicInfoContext";
 import type { NodeBasicInfo } from "@/contexts/NodeListContext";
 import type { LiveData } from "@/types/LiveData";
-import type { LoadRecord, MetricType } from "@/types/LoadData";
+import type { MetricType } from "@/types/LoadData";
 import { METRIC_CONFIGS as MetricConfigs, isNetworkMetric } from "@/types/LoadData";
 import Loading from "@/components/loading";
 import { 
@@ -30,6 +30,7 @@ import { motion } from "framer-motion";
 import fillMissingTimePoints, {
   cutPeakValues,
   sampleDataByRetention,
+  type RecordFormat,
 } from "@/utils/RecordHelper";
 import Flag from "@/components/Flag";
 import { formatBytes, getTrafficPercentage } from "@/utils/formatHelper";
@@ -242,7 +243,7 @@ const TaskDisplay: React.FC<TaskDisplayProps> = ({ nodes, liveData }) => {
   
   // Load metric states
   const [selectedMetrics, setSelectedMetrics] = useState<MetricType[]>(["cpu"]);
-  const [loadData, setLoadData] = useState<Record<string, LoadRecord[]>>({});
+  const [loadData, setLoadData] = useState<Record<string, RecordFormat[]>>({});
   
   // Server-side statistics for ping tasks (from new API)
   const [serverPingStats, setServerPingStats] = useState<Record<string, any>>({});
@@ -423,7 +424,7 @@ const TaskDisplay: React.FC<TaskDisplayProps> = ({ nodes, liveData }) => {
           
           selectedMetrics.forEach(metric => {
             const key = `${nodeId}_${metric}`;
-            let value = record[metric as keyof LoadRecord] as number;
+            let value = record[metric as keyof RecordFormat] as number;
             
             // Handle special composite metrics and mappings
             if (metric === 'net_total') {

@@ -75,6 +75,7 @@ export const MobileLoadChart: React.FC<MobileLoadChartProps> = ({
       });
       return () => cancelAnimationFrame(frame);
     }
+    const selectedHours = selected.hours;
     
     // 创建新的请求控制器
     const controller = new AbortController();
@@ -87,7 +88,7 @@ export const MobileLoadChart: React.FC<MobileLoadChartProps> = ({
     
     // 添加延迟以避免频繁请求
     const timeoutId = setTimeout(() => {
-      getLoadRecords([uuid], selected.hours, controller.signal)
+      getLoadRecords([uuid], selectedHours, controller.signal)
         .then((result) => {
           const records = result[uuid] || [];
           records.sort(

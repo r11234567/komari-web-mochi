@@ -18,25 +18,6 @@ type CachedPingSummary = PingSummary & {
   cachedAt: number;
 };
 
-type PingRecord = {
-  task_id: number;
-  time: string;
-  value: number;
-};
-
-type PingTask = {
-  id?: number;
-  name?: string;
-  loss?: number;
-};
-
-type PingApiResp = {
-  data?: {
-    records?: PingRecord[];
-    tasks?: PingTask[];
-  };
-};
-
 const emptySummary: PingSummary = {
   items: [],
   loading: true,
