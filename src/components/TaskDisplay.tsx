@@ -461,12 +461,15 @@ const TaskDisplay: React.FC<TaskDisplayProps> = ({ nodes, liveData }) => {
               
               // Convert values to appropriate format
               // API returns bytes for ram/disk/swap, need to convert to percentage
-              if (metric === 'ram' && record.ram_total > 0) {
-                value = (value / record.ram_total) * 100;
-              } else if (metric === 'disk' && record.disk_total > 0) {
-                value = (value / record.disk_total) * 100;
-              } else if (metric === 'swap' && record.swap_total > 0) {
-                value = (value / record.swap_total) * 100;
+              const ramTotal = record.ram_total ?? 0;
+              const diskTotal = record.disk_total ?? 0;
+              const swapTotal = record.swap_total ?? 0;
+              if (metric === 'ram' && ramTotal > 0) {
+                value = (value / ramTotal) * 100;
+              } else if (metric === 'disk' && diskTotal > 0) {
+                value = (value / diskTotal) * 100;
+              } else if (metric === 'swap' && swapTotal > 0) {
+                value = (value / swapTotal) * 100;
               }
               // CPU, GPU and other metrics keep original values from API
             }
