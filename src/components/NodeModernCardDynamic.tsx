@@ -57,7 +57,7 @@ const ModernCardDynamicComponent: React.FC<ModernCardDynamicProps> = ({
   children
 }) => {
   const { t } = useTranslation();
-  const { publicInfo } = usePublicInfo();
+  const { publicInfo, error: publicInfoError } = usePublicInfo();
   const showModernPingStats = parseBooleanSetting(
     publicInfo?.theme_settings?.showModernPingStats,
     true
@@ -65,8 +65,12 @@ const ModernCardDynamicComponent: React.FC<ModernCardDynamicProps> = ({
   const modernPingStatsHours = parsePingStatsHours(
     publicInfo?.theme_settings?.modernPingStatsHours
   );
+  // The configured window only arrives with the public info. Querying before
+  // then spends a round trip on a window we are about to replace, so wait for
+  // the settings to resolve one way or the other.
+  const settingsResolved = publicInfo !== null || publicInfoError !== null;
   const pingSummary = usePingSummary(
-    showModernPingStats && online ? basic.uuid : undefined,
+    settingsResolved && showModernPingStats && online ? basic.uuid : undefined,
     modernPingStatsHours
   );
 

@@ -8,6 +8,7 @@ import type { PublicInfo } from "@/contexts/PublicInfoContext";
 import type { NodeBasicInfo } from "@/contexts/NodeListContext";
 import type { LiveDataResponse, Record as LiveRecord } from "@/types/LiveData";
 import type { RecordFormat } from "@/utils/RecordHelper";
+import { dedupe, quantizedWindow, withAbort } from "@/api/requestCache";
 
 const transport = createConnectTransport({
   baseUrl: window.location.origin,
@@ -147,13 +148,46 @@ const loadMetrics = [
   "net.total.up", "net.total.down", "process.count", "connections.tcp", "connections.udp",
 ];
 
-export async function getLoadRecords(
+/**
+ * Window quantisation for the record queries. Every caller landing in the same
+ * 30s slice shares one request instead of each sending its own `Date.now()`.
+ */
+const WINDOW_STEP_MS = 30_000;
+const RECORD_TTL_MS = 60_000;
+const TASK_LIST_TTL_MS = 60_000;
+
+const windowKey = (agentIds: string[], hours: number, end: Date) =>
+  `${[...agentIds].sort().join(",")}|${hours}|${end.getTime()}`;
+
+/**
+ * The probe list is global — the request carries no arguments at all — so it is
+ * fetched once and shared rather than once per node card.
+ */
+const getPingTasks = () => dedupe(
+  "metrics.listPingTasks",
+  TASK_LIST_TTL_MS,
+  async () => (await metrics.listPingTasks({}, options())).tasks,
+);
+
+export function getLoadRecords(
   agentIds: string[],
   hours: number,
   signal?: AbortSignal,
 ): Promise<Record<string, RecordFormat[]>> {
-  const end = new Date();
-  const start = new Date(end.getTime() - hours * 3_600_000);
+  const { start, end } = quantizedWindow(hours, WINDOW_STEP_MS);
+  return withAbort(
+    dedupe(`load|${windowKey(agentIds, hours, end)}`, RECORD_TTL_MS, () =>
+      fetchLoadRecords(agentIds, start, end),
+    ),
+    signal,
+  );
+}
+
+async function fetchLoadRecords(
+  agentIds: string[],
+  start: Date,
+  end: Date,
+): Promise<Record<string, RecordFormat[]>> {
   const response = await metrics.queryMetrics({
     agentIds,
     metrics: loadMetrics,
@@ -161,7 +195,7 @@ export async function getLoadRecords(
     endTime: timestampFromDate(end),
     maxPoints: 1_000,
     fillEmpty: false,
-  }, options(signal));
+  }, options());
   const rows = new Map<string, Map<string, RecordFormat>>();
   for (const series of response.series) {
     const agentRows = rows.get(series.agentId) ?? new Map<string, RecordFormat>();
@@ -206,24 +240,51 @@ export interface PingTaskInfo {
   avg?: number; latest?: number; total?: number; p50?: number; p99?: number; p99_p50_ratio?: number; type?: string;
 }
 
-export async function getPingRecords(
+export type PingStat = Awaited<ReturnType<typeof metrics.getPingStats>>["stats"][number];
+export interface PingRecordsResult {
+  records: PingRecord[];
+  tasks: PingTaskInfo[];
+  /** Server-computed statistics keyed `agentId:taskId`. */
+  stats: Map<string, PingStat>;
+}
+
+/**
+ * Latency records for one or many agents. `QueryMetrics` and `GetPingStats`
+ * both accept a list of agents and the server derives its bucket interval from
+ * the window rather than from the agent count, so asking for the whole set in
+ * one call returns exactly what per-agent calls did.
+ */
+export function getPingRecords(
   agentIds: string[],
   hours: number,
   taskIds: number[] = [],
   signal?: AbortSignal,
-) {
-  const end = new Date(); const start = new Date(end.getTime() - hours * 3_600_000);
-  const [seriesResponse, taskResponse, statsResponse] = await Promise.all([
+): Promise<PingRecordsResult> {
+  const { start, end } = quantizedWindow(hours, WINDOW_STEP_MS);
+  const key = `ping|${windowKey(agentIds, hours, end)}|${[...taskIds].sort().join(",")}`;
+  return withAbort(
+    dedupe(key, RECORD_TTL_MS, () => fetchPingRecords(agentIds, taskIds, start, end)),
+    signal,
+  );
+}
+
+async function fetchPingRecords(
+  agentIds: string[],
+  taskIds: number[],
+  start: Date,
+  end: Date,
+): Promise<PingRecordsResult> {
+  const [seriesResponse, taskList, statsResponse] = await Promise.all([
     metrics.queryMetrics({
       agentIds, metrics: ["ping.latency_ms"], startTime: timestampFromDate(start),
       endTime: timestampFromDate(end), maxPoints: 1_000,
       tags: taskIds.length === 1 ? { task_id: String(taskIds[0]) } : {}, fillEmpty: true,
-    }, options(signal)),
-    metrics.listPingTasks({}, options(signal)),
+    }, options()),
+    getPingTasks(),
     metrics.getPingStats({
       agentIds, taskIds: taskIds.map(BigInt), startTime: timestampFromDate(start),
       endTime: timestampFromDate(end), maxPoints: 1_000,
-    }, options(signal)),
+    }, options()),
   ]);
   const records: PingRecord[] = [];
   for (const series of seriesResponse.series) {
@@ -241,7 +302,7 @@ export async function getPingRecords(
   const stats = new Map(statsResponse.stats.map((stat) => [`${stat.agentId}:${Number(stat.taskId)}`, stat]));
   const aggregateStats = new Map<number, typeof statsResponse.stats[number]>();
   for (const stat of statsResponse.stats) if (!aggregateStats.has(Number(stat.taskId))) aggregateStats.set(Number(stat.taskId), stat);
-  const tasks: PingTaskInfo[] = taskResponse.tasks
+  const tasks: PingTaskInfo[] = taskList
     .filter((task) => !taskIds.length || taskIds.includes(Number(task.taskId)))
     .map((task) => {
       const stat = aggregateStats.get(Number(task.taskId));
