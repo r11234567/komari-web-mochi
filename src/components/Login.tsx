@@ -13,6 +13,9 @@ import { TablerSettings } from "./Icones/Tabler";
 import { AccountProvider, useAccount } from "@/contexts/AccountContext";
 import { usePublicInfo } from "@/contexts/PublicInfoContext";
 
+const PASSKEY_REDIRECT_KEY = "mochi:passkey-login-redirect";
+const PASSKEY_REDIRECT_MAX_AGE_MS = 60_000;
+
 type LoginDialogProps = {
   trigger?: React.ReactNode | string;
   autoOpen?: boolean;
@@ -40,6 +43,46 @@ const LoginDialog = ({ trigger, autoOpen = false, showSettings = true, info, onL
         setOpen(true);
       }
     }, [autoOpen]);
+
+    // The passkey plugin reloads the page after authentication. Keep a short-lived
+    // marker so the refreshed, server-confirmed session follows the normal admin
+    // login destination without affecting password or OAuth login.
+    React.useEffect(() => {
+      const markPasskeyLogin = (event: MouseEvent) => {
+        const target = event.target;
+        if (!(target instanceof Element) || !target.closest(".km-passkey-login")) {
+          return;
+        }
+        try {
+          sessionStorage.setItem(PASSKEY_REDIRECT_KEY, String(Date.now()));
+        } catch {
+          // Storage may be unavailable in privacy-restricted browser contexts.
+        }
+      };
+      document.addEventListener("click", markPasskeyLogin, true);
+      return () => document.removeEventListener("click", markPasskeyLogin, true);
+    }, []);
+
+    React.useEffect(() => {
+      if (loading || !account?.logged_in || window.location.pathname === "/admin") {
+        return;
+      }
+      let shouldRedirect = false;
+      try {
+        const markedAt = Number(sessionStorage.getItem(PASSKEY_REDIRECT_KEY));
+        if (Number.isFinite(markedAt) && Date.now() - markedAt <= PASSKEY_REDIRECT_MAX_AGE_MS) {
+          shouldRedirect = true;
+        }
+        if (shouldRedirect) {
+          sessionStorage.removeItem(PASSKEY_REDIRECT_KEY);
+        }
+      } catch {
+        return;
+      }
+      if (shouldRedirect) {
+        window.location.assign("/admin");
+      }
+    }, [account?.logged_in, loading]);
     // Handle login
     const handleLogin = async () => {
       if (!isFormValid) {
