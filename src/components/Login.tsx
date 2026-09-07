@@ -119,7 +119,7 @@ const LoginDialog = ({ trigger, autoOpen = false, showSettings = true, info, onL
         <Dialog.Trigger>
           {trigger ? trigger : <Button>{t("login.title")}</Button>}
         </Dialog.Trigger>
-        <Dialog.Content maxWidth="450px">
+        <Dialog.Content maxWidth="450px" className="km-login-dialog">
           <Dialog.Title>{t("login.title")}</Dialog.Title>
           <Dialog.Description size="2" mb="4">
             <div className="flex justify-center flex-col gap-2">
@@ -133,6 +133,7 @@ const LoginDialog = ({ trigger, autoOpen = false, showSettings = true, info, onL
 
           </Dialog.Description>
           <Box
+            className="km-login-form"
             onSubmit={(e) => {
               e.preventDefault(); // Prevent native form submission
               if (isFormValid && !isLoading) {
@@ -146,6 +147,7 @@ const LoginDialog = ({ trigger, autoOpen = false, showSettings = true, info, onL
                   {t("login.username")}
                 </Text>
                 <TextField.Root
+                  className="km-login-input"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -159,6 +161,7 @@ const LoginDialog = ({ trigger, autoOpen = false, showSettings = true, info, onL
                   {t("login.password")}
                 </Text>
                 <TextField.Root
+                  className="km-login-input"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -172,6 +175,7 @@ const LoginDialog = ({ trigger, autoOpen = false, showSettings = true, info, onL
                   {t("login.two_factor")}
                 </Text>
                 <TextField.Root
+                  className="km-login-input"
                   value={twoFac}
                   onChange={(e) => setTwoFac(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -181,7 +185,7 @@ const LoginDialog = ({ trigger, autoOpen = false, showSettings = true, info, onL
                 />
               </label>
               {errorMsg && (
-                <Text as="div" size="2" color="red">
+                <Text as="div" size="2" color="red" className="km-login-error">
                   {errorMsg}
                 </Text>
               )}
