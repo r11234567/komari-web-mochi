@@ -22,6 +22,8 @@ jobs:
         run: bash scripts/ci/run-audit-check.sh install npm ci --no-audit
       - name: Compile actual theme bundle
         run: bash scripts/ci/run-audit-check.sh build npm run build
+      - name: Verify generated worker cannot intercept native login or account pages
+        run: bash scripts/ci/run-audit-check.sh public-worker node --test tests/publicWorker.test.ts
       - name: Retain complete failure logs and compiled bundle
         if: always()
         uses: actions/upload-artifact@v4
