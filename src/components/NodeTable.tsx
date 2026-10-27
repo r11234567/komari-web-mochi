@@ -1,3 +1,4 @@
+import { formatTrafficGB } from "@/utils/trafficDisplay";
 import React, { useState } from "react";
 import {
   Table,
@@ -419,11 +420,11 @@ const NodeTable: React.FC<NodeTableProps> = ({ nodes, liveData }) => {
                           ).toFixed(0)}%
                         </label>
                         <label style={{ fontSize: '11px', color: 'var(--gray-10)' }}>
-                          ↑{formatBytes(nodeData.network.totalUp)}
+                          ↑{formatTrafficGB(nodeData.network.totalUp)}
                         </label>
                       </Flex>
                     ) : (
-                      <label>↑{formatBytes(nodeData.network.totalUp)}</label>
+                      <label>↑{formatTrafficGB(nodeData.network.totalUp)}</label>
                     )}
                   </TableCell>
                   <TableCell className="text-center min-w-[80px]">
@@ -444,14 +445,14 @@ const NodeTable: React.FC<NodeTableProps> = ({ nodes, liveData }) => {
                           })(),
                           fontWeight: 'bold'
                         }}>
-                          {formatBytes(node.traffic_limit || 0)}
+                          {formatTrafficGB(node.traffic_limit || 0)}
                         </label>
                         <label style={{ fontSize: '11px', color: 'var(--gray-10)' }}>
-                          ↓{formatBytes(nodeData.network.totalDown)}
+                          ↓{formatTrafficGB(nodeData.network.totalDown)}
                         </label>
                       </Flex>
                     ) : (
-                      <label>↓{formatBytes(nodeData.network.totalDown)}</label>
+                      <label>↓{formatTrafficGB(nodeData.network.totalDown)}</label>
                     )}
                   </TableCell>
                 </TableRow>

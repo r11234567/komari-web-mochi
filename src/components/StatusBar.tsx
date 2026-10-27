@@ -1,3 +1,4 @@
+import { formatTrafficGB } from "@/utils/trafficDisplay";
 import React, { useEffect, useState } from "react";
 import { Card, Flex, Text, IconButton, Popover } from "@radix-ui/themes";
 import { Activity, Database, Globe, Network, Server, Settings, TrendingUp } from "lucide-react";
@@ -210,10 +211,10 @@ const StatusBar: React.FC<StatusBarProps> = ({
                 value={
                   <Flex direction="column" gap="0">
                     <Text size="2" className="leading-snug font-medium">
-                      ↑ {formatBytes(uploadTotal)}
+                      ↑ {formatTrafficGB(uploadTotal)}
                     </Text>
                     <Text size="2" className="leading-snug font-medium">
-                      ↓ {formatBytes(downloadTotal)}
+                      ↓ {formatTrafficGB(downloadTotal)}
                     </Text>
                   </Flex>
                 }
