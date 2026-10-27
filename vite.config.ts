@@ -51,7 +51,11 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           cleanupOutdatedCaches: true,
-          globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+          // Documents belong to the panel's router. Caching index.html or
+          // returning it for /login would replace the native second-factor
+          // screen with the public theme, and would also mask theme changes.
+          globPatterns: ['**/*.{js,css,ico,png,svg}'],
+          navigateFallback: null,
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/api\./i,
