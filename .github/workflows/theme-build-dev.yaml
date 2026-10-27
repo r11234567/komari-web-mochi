@@ -46,20 +46,18 @@ jobs:
       
       - name: Get version info
         id: version
+        env:
+          PR_BRANCH: ${{ github.head_ref }}
         run: |
           # Generate version info matching build-theme.sh
           VERSION_DATE=$(date +"%y.%m.%d")
           COMMIT_HASH=$(git rev-parse --short HEAD)
-          BRANCH_NAME=${GITHUB_REF#refs/heads/}
-          
-          # For PR, use PR branch name
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            BRANCH_NAME="${{ github.head_ref }}"
-          fi
+          BRANCH_NAME="${PR_BRANCH:-${GITHUB_REF#refs/heads/}}"
+          ARTIFACT_BRANCH="$(printf '%s' "$BRANCH_NAME" | tr -c 'A-Za-z0-9._-' '-')"
           
           echo "version=${VERSION_DATE}" >> $GITHUB_OUTPUT
           echo "commit=${COMMIT_HASH}" >> $GITHUB_OUTPUT
-          echo "branch=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          echo "branch=${ARTIFACT_BRANCH}" >> $GITHUB_OUTPUT
           echo "zip_name=komari-theme-v${VERSION_DATE}-${COMMIT_HASH}.zip" >> $GITHUB_OUTPUT
       
       - name: Verify required files

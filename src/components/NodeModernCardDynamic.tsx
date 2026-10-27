@@ -112,7 +112,7 @@ const ModernCardDynamicComponent: React.FC<ModernCardDynamicProps> = ({
     ramTotalCompact: formatBytes(basic.mem_total, true),
     diskTotal: formatBytes(basic.disk_total, false, 1), // 桌面端保留1位小数
     diskTotalCompact: formatBytes(basic.disk_total, true),
-    trafficLimit: formatTrafficGB(basic.traffic_limit || 0, false, 1), // 桌面端保留1位小数
+    trafficLimit: formatTrafficGB(basic.traffic_limit || 0), // 与校准页面统一为两位小数
     trafficLimitCompact: formatTrafficGB(basic.traffic_limit || 0, true)
   }), [basic.mem_total, basic.disk_total, basic.traffic_limit]);
 
