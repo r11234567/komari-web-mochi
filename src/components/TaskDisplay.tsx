@@ -1,3 +1,4 @@
+import { formatTrafficGB } from "@/utils/trafficDisplay";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Flex, Card, Switch, Button, Text, SegmentedControl, Box } from "@radix-ui/themes";
@@ -155,7 +156,7 @@ const formatMetricValue = (value: number, metric: MetricType): string => {
   }
   
   if (metric === "net_total_up" || metric === "net_total_down" || metric === "net_bandwidth") {
-    return formatBytes(value);
+    return formatTrafficGB(value);
   }
   
   if (metric === "traffic_limit") {
@@ -220,9 +221,8 @@ const TaskDisplay: React.FC<TaskDisplayProps> = ({ nodes, liveData }) => {
     if (allPercentages) {
       return (value: number) => `${value}%`;
     } else if (allNetwork) {
-      return (value: number) => formatBytes(value, true) + (
-        selectedMetrics.some(m => ['net_in', 'net_out', 'net_total'].includes(m)) ? '/s' : ''
-      );
+      const hasRates = selectedMetrics.some(m => ['net_in', 'net_out', 'net_total'].includes(m));
+      return (value: number) => hasRates ? formatBytes(value, true) + '/s' : formatTrafficGB(value, true);
     } else if (selectedMetrics.includes('temp')) {
       return (value: number) => `${value}°C`;
     } else if (selectedMetrics.includes('load')) {

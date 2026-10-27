@@ -1,3 +1,4 @@
+import { formatTrafficGB } from "@/utils/trafficDisplay";
 import React, { useState, useMemo, type CSSProperties } from 'react';
 import { Flex, Text, Card, IconButton, Badge } from '@radix-ui/themes';
 import { ChevronDown, ChevronUp, Cpu, MemoryStick, HardDrive, ArrowDownUp, Activity, Gauge } from 'lucide-react';
@@ -174,14 +175,14 @@ const NodeCompactCard: React.FC<NodeCompactCardProps> = ({ basic, live, online, 
                 </Text>
               </Flex>
               {trafficInfo && (
-                <Flex align="center" gap="1" title={`Traffic: ${formatBytes(trafficInfo.usage)} / ${formatBytes(trafficInfo.limit)} (${trafficInfo.percentage.toFixed(1)}%)`} style={{ flexShrink: 0 }}>
+                <Flex align="center" gap="1" title={`Traffic: ${formatTrafficGB(trafficInfo.usage)} / ${formatTrafficGB(trafficInfo.limit)} (${trafficInfo.percentage.toFixed(1)}%)`} style={{ flexShrink: 0 }}>
                   <Gauge size={12} />
                   <Text size="1" style={{ whiteSpace: 'nowrap' }}>
                     <span>
                       {isMobile ? trafficInfo.percentage.toFixed(0) : trafficInfo.percentage.toFixed(1)}%
                     </span>
                     <span style={{ marginLeft: '4px' }}>
-                      {formatBytes(trafficInfo.usage, isMobile)}/{formatBytes(trafficInfo.limit, isMobile)}
+                      {formatTrafficGB(trafficInfo.usage, isMobile)}/{formatTrafficGB(trafficInfo.limit, isMobile)}
                     </span>
                   </Text>
                 </Flex>
@@ -352,10 +353,10 @@ const NodeCompactCard: React.FC<NodeCompactCardProps> = ({ basic, live, online, 
                       <Text size="1" color="gray">Total:</Text>
                       <Flex direction="column" align="end" gap="0">
                         <Text size="1" style={{ lineHeight: '1.2' }}>
-                          ↓{formatBytes(live?.network?.totalDown ?? 0, isMobile)}
+                          ↓{formatTrafficGB(live?.network?.totalDown ?? 0, isMobile)}
                         </Text>
                         <Text size="1" style={{ lineHeight: '1.2' }}>
-                          ↑{formatBytes(live?.network?.totalUp ?? 0, isMobile)}
+                          ↑{formatTrafficGB(live?.network?.totalUp ?? 0, isMobile)}
                         </Text>
                       </Flex>
                     </Flex>

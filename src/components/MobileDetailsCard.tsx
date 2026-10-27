@@ -1,3 +1,4 @@
+import { formatTrafficGB } from "@/utils/trafficDisplay";
 import { useTranslation } from "react-i18next";
 import { formatBytes, formatUptime } from "./Node";
 import { getTrafficStats } from "@/utils";
@@ -60,7 +61,7 @@ export const MobileDetailsCard: React.FC<MobileDetailsCardProps> = ({
     ? [`↑ ${formatBytes(liveData.network.up || 0)}/s`, `↓ ${formatBytes(liveData.network.down || 0)}/s`]
     : "-";
   const totalTrafficLines = liveData
-    ? [`↑ ${formatBytes(liveData.network.totalUp || 0)}`, `↓ ${formatBytes(liveData.network.totalDown || 0)}`]
+    ? [`↑ ${formatTrafficGB(liveData.network.totalUp || 0)}`, `↓ ${formatTrafficGB(liveData.network.totalDown || 0)}`]
     : "-";
 
   const formatLatency = (value: number | null) =>
@@ -118,8 +119,8 @@ export const MobileDetailsCard: React.FC<MobileDetailsCardProps> = ({
             label={t("nodeCard.trafficLimit")}
             type={getTrafficTypeDisplay(node.traffic_limit_type)}
             percentage={trafficStats.percentage}
-            usedLabel={formatBytes(trafficStats.usage)}
-            limitLabel={formatBytes(node.traffic_limit || 0)}
+            usedLabel={formatTrafficGB(trafficStats.usage)}
+            limitLabel={formatTrafficGB(node.traffic_limit || 0)}
           />
         )}
       </div>

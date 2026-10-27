@@ -1,3 +1,4 @@
+import { formatTrafficGB } from "@/utils/trafficDisplay";
 import {
   Card,
   Flex,
@@ -79,9 +80,9 @@ const Node = ({ basic, live, online }: NodeProps) => {
 
   const uploadSpeed = formatBytes(liveData.network.up);
   const downloadSpeed = formatBytes(liveData.network.down);
-  const totalUpload = formatBytes(liveData.network.totalUp);
-  const totalDownload = formatBytes(liveData.network.totalDown);
-  //const totalTraffic = formatBytes(liveData.network.totalUp + liveData.network.totalDown);
+  const totalUpload = formatTrafficGB(liveData.network.totalUp);
+  const totalDownload = formatTrafficGB(liveData.network.totalDown);
+  //const totalTraffic = formatTrafficGB(liveData.network.totalUp + liveData.network.totalDown);
   return (
     <Card
       style={{
@@ -207,11 +208,11 @@ const Node = ({ basic, live, online }: NodeProps) => {
                       {getTrafficTypeDisplay(basic.traffic_limit_type)}
                     </Text>
                     <Text size="1" color="gray" style={{ marginTop: "-4px", textAlign: "right" }}>
-                      {formatBytes(getTrafficUsage(
+                      {formatTrafficGB(getTrafficUsage(
                         liveData.network.totalUp,
                         liveData.network.totalDown,
                         basic.traffic_limit_type
-                      ))} / {formatBytes(basic.traffic_limit || 0)}
+                      ))} / {formatTrafficGB(basic.traffic_limit || 0)}
                     </Text>
                   </Flex>
                   <Flex justify="end">
@@ -226,11 +227,11 @@ const Node = ({ basic, live, online }: NodeProps) => {
                   color="gray"
                   style={{ marginTop: "-4px" }}
                 >
-                  ({formatBytes(getTrafficUsage(
+                  ({formatTrafficGB(getTrafficUsage(
                     liveData.network.totalUp,
                     liveData.network.totalDown,
                     basic.traffic_limit_type
-                  ))} / {formatBytes(basic.traffic_limit || 0)}) • ↑ {totalUpload} ↓ {totalDownload}
+                  ))} / {formatTrafficGB(basic.traffic_limit || 0)}) • ↑ {totalUpload} ↓ {totalDownload}
                 </Text>
               )}
             </>

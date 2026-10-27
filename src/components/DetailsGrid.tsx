@@ -1,3 +1,4 @@
+import { formatTrafficGB } from "@/utils/trafficDisplay";
 import { useTranslation } from "react-i18next";
 import { UpDownStack } from "./UpDownStack";
 import { useNodeList } from "@/contexts/NodeListContext";
@@ -67,11 +68,11 @@ export const DetailsGrid = ({ uuid, gap, align }: DetailsGridProps) => {
         align={align === "center"?"end":"start"}
         className="flex-[0_0_calc(50%-0.5rem)]"
         down={`↑
-          ${formatBytes(
+          ${formatTrafficGB(
           live_data?.data.data[uuid ?? ""]?.network.totalUp || 0
         )}
           ↓
-          ${formatBytes(
+          ${formatTrafficGB(
           live_data?.data.data[uuid ?? ""]?.network.totalDown || 0
         )}`}
       />

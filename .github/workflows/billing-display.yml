@@ -1,0 +1,35 @@
+name: Billing traffic display checkpoint
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  traffic-display:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Regression for provider decimal GB and all traffic layouts
+        run: bash scripts/ci/run-audit-check.sh traffic-display node --test tests/trafficDisplay.test.ts
+      - name: Install locked dependencies only on GitHub runner
+        run: bash scripts/ci/run-audit-check.sh install npm ci --no-audit
+      - name: Compile actual theme bundle
+        run: bash scripts/ci/run-audit-check.sh build npm run build
+      - name: Retain complete failure logs and compiled bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: billing-display-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ci-artifacts/
+            dist/
+            komari-theme.json
+            preview.png
+          retention-days: 30

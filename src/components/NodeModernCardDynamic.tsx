@@ -1,3 +1,4 @@
+import { formatTrafficGB } from "@/utils/trafficDisplay";
 import React, { useMemo } from "react";
 import { Card, Flex, Text } from "@radix-ui/themes";
 import { useTranslation } from "react-i18next";
@@ -111,8 +112,8 @@ const ModernCardDynamicComponent: React.FC<ModernCardDynamicProps> = ({
     ramTotalCompact: formatBytes(basic.mem_total, true),
     diskTotal: formatBytes(basic.disk_total, false, 1), // 桌面端保留1位小数
     diskTotalCompact: formatBytes(basic.disk_total, true),
-    trafficLimit: formatBytes(basic.traffic_limit || 0, false, 1), // 桌面端保留1位小数
-    trafficLimitCompact: formatBytes(basic.traffic_limit || 0, true)
+    trafficLimit: formatTrafficGB(basic.traffic_limit || 0), // 与校准页面统一为两位小数
+    trafficLimitCompact: formatTrafficGB(basic.traffic_limit || 0, true)
   }), [basic.mem_total, basic.disk_total, basic.traffic_limit]);
 
   // 进度条颜色函数
@@ -321,10 +322,10 @@ const ModernCardDynamicComponent: React.FC<ModernCardDynamicProps> = ({
                     <div className="transform origin-left scale-[0.75] sm:scale-100 inline-block">
                       <Text size="1" color="gray">
                         <span className="inline sm:hidden">
-                          {formatBytes(trafficUsage, true)}/{staticFormattedBytes.trafficLimitCompact}
+                          {formatTrafficGB(trafficUsage, true)}/{staticFormattedBytes.trafficLimitCompact}
                         </span>
                         <span className="hidden sm:inline">
-                          {formatBytes(trafficUsage, false, 1)} / {staticFormattedBytes.trafficLimit}
+                          {formatTrafficGB(trafficUsage, false, 1)} / {staticFormattedBytes.trafficLimit}
                         </span>
                       </Text>
                     </div>
@@ -334,8 +335,8 @@ const ModernCardDynamicComponent: React.FC<ModernCardDynamicProps> = ({
                 <div className="mt-0.5 text-[10px] sm:text-xs whitespace-nowrap overflow-hidden">
                   <div className="transform origin-left scale-[0.75] sm:scale-100 inline-block">
                     <Text size="1" color="gray">
-                      <span className="inline sm:hidden">↑{formatBytes(liveData.network.totalUp, true)} ↓{formatBytes(liveData.network.totalDown, true)}</span>
-                      <span className="hidden sm:inline">↑ {formatBytes(liveData.network.totalUp, false, 1)} ↓ {formatBytes(liveData.network.totalDown, false, 1)}</span>
+                      <span className="inline sm:hidden">↑{formatTrafficGB(liveData.network.totalUp, true)} ↓{formatTrafficGB(liveData.network.totalDown, true)}</span>
+                      <span className="hidden sm:inline">↑ {formatTrafficGB(liveData.network.totalUp, false, 1)} ↓ {formatTrafficGB(liveData.network.totalDown, false, 1)}</span>
                     </Text>
                   </div>
                 </div>

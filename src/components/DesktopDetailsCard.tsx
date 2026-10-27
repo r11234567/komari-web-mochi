@@ -1,3 +1,4 @@
+import { formatTrafficGB } from "@/utils/trafficDisplay";
 import { Tooltip } from "@radix-ui/themes";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -64,7 +65,7 @@ export const DesktopDetailsCard: React.FC<DesktopDetailsCardProps> = ({
     ? [`↑ ${formatBytes(liveData.network.up || 0)}/s`, `↓ ${formatBytes(liveData.network.down || 0)}/s`]
     : "-";
   const totalTrafficLines = liveData
-    ? [`↑ ${formatBytes(liveData.network.totalUp || 0)}`, `↓ ${formatBytes(liveData.network.totalDown || 0)}`]
+    ? [`↑ ${formatTrafficGB(liveData.network.totalUp || 0)}`, `↓ ${formatTrafficGB(liveData.network.totalDown || 0)}`]
     : "-";
 
   const formatLatency = (value: number | null) =>
@@ -150,8 +151,8 @@ export const DesktopDetailsCard: React.FC<DesktopDetailsCardProps> = ({
               label={t("nodeCard.trafficLimit")}
               type={getTrafficTypeDisplay(node.traffic_limit_type)}
               percentage={trafficStats.percentage}
-              usedLabel={formatBytes(trafficStats.usage)}
-              limitLabel={formatBytes(node.traffic_limit || 0)}
+              usedLabel={formatTrafficGB(trafficStats.usage)}
+              limitLabel={formatTrafficGB(node.traffic_limit || 0)}
             />
           )}
         </div>
