@@ -20,13 +20,11 @@ import {
   MemoryStick,
   Layers,
   Calendar,
-  Radio,
   BarChart3,
 } from "lucide-react";
 import UsageBar from "./UsageBar";
 import type { NodeBasicInfo } from "@/contexts/NodeListContext";
 import type { Record } from "@/types/LiveData";
-import { usePingSummary } from "@/hooks/use-ping-summary";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface DesktopDetailsCardProps {
@@ -70,8 +68,6 @@ export const DesktopDetailsCard: React.FC<DesktopDetailsCardProps> = ({
   const hasTrafficLimit = Number(node.traffic_limit) > 0 && Boolean(node.traffic_limit_type);
   const trafficResetCountdown = formatTrafficResetTime(node.traffic_next_reset, t);
 
-  const pingSummary = usePingSummary(node.uuid);
-
   const getTrafficTypeDisplay = (type?: string) => {
     switch (type) {
       case "max": return "MAX";
@@ -83,23 +79,12 @@ export const DesktopDetailsCard: React.FC<DesktopDetailsCardProps> = ({
     }
   };
 
-  const formatLatency = (value: number | null) =>
-    value == null ? "-" : `${Math.round(value)} ms`;
-  const formatLoss = (value: number | null) =>
-    value == null ? "-" : `${value.toFixed(1)}%`;
   const formatLoad = (value?: number) =>
     typeof value === "number" && Number.isFinite(value) ? value.toFixed(2) : "-";
 
   const loadLine = `1m: ${formatLoad(liveData?.load?.load1)} / 5m: ${formatLoad(liveData?.load?.load5)} / 15m: ${formatLoad(liveData?.load?.load15)}`;
   const uptimeLabel = liveData?.uptime ? formatUptime(liveData.uptime, t) : "-";
   const updatedLabel = liveData?.updated_at ? new Date(liveData.updated_at).toLocaleString() : "-";
-
-  const latencyRows = pingSummary.items.map((item) => ({
-    name: item.name,
-    current: formatLatency(item.current),
-    avg: formatLatency(item.avg),
-    loss: formatLoss(item.loss),
-  }));
 
   // Resource Usage Card Component
   const renderResourceUsageCard = () => (
@@ -394,52 +379,6 @@ export const DesktopDetailsCard: React.FC<DesktopDetailsCardProps> = ({
     </Card>
   );
 
-  // Latency Card
-  const renderLatencyCard = () => (
-    <Card style={{ borderRadius: "12px" }}>
-      <Flex direction="column" gap="3">
-        <Flex align="center" gap="2">
-          <Radio size={18} className="text-accent-9" />
-          <Text size="3" weight="bold">{t("nodeCard.ping", { defaultValue: "延迟监测" })}</Text>
-        </Flex>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm" style={{ borderCollapse: "separate", borderSpacing: "0 6px" }}>
-            <thead>
-              <tr className="text-gray-10 text-xs">
-                <th className="py-1 px-3">{t("Task Name", { defaultValue: "任务名" })}</th>
-                <th className="py-1 px-3 text-right">{t("Current", { defaultValue: "当前" })}</th>
-                <th className="py-1 px-3 text-right">{t("Avg", { defaultValue: "平均" })}</th>
-                <th className="py-1 px-3 text-right">{t("Loss", { defaultValue: "丢包" })}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {latencyRows.length ? (
-                latencyRows.map((row) => (
-                  <tr key={row.name} style={{ backgroundColor: "var(--gray-a2)", borderRadius: "6px" }}>
-                    <td className="py-2 px-3 font-medium rounded-l-md">{row.name}</td>
-                    <td className="py-2 px-3 text-right font-mono">{row.current}</td>
-                    <td className="py-2 px-3 text-right font-mono">{row.avg}</td>
-                    <td className="py-2 px-3 text-right font-mono rounded-r-md">
-                      <Badge color={row.loss === "0.0%" ? "green" : "red"} variant="soft" size="1">
-                        {row.loss}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={4} className="py-3 px-3 text-center text-gray-9">
-                    -
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Flex>
-    </Card>
-  );
-
   return (
     <div className="w-full max-w-7xl mx-auto flex flex-col gap-4">
       {/* 标签切换导航 */}
@@ -494,25 +433,17 @@ export const DesktopDetailsCard: React.FC<DesktopDetailsCardProps> = ({
       {/* 选项卡内容区域 */}
       <div className="grid gap-4">
         {activeTab === "overview" && (
-          <>
-            <div className="grid md:grid-cols-2 gap-4">
-              {renderResourceUsageCard()}
-              {renderOverviewSummaryCard()}
-            </div>
-            {latencyRows.length > 0 && renderLatencyCard()}
-          </>
+          <div className="grid md:grid-cols-2 gap-4">
+            {renderResourceUsageCard()}
+            {renderOverviewSummaryCard()}
+          </div>
         )}
 
         {activeTab === "hardware" && renderHardwareCard()}
 
         {activeTab === "network" && renderNetworkCard()}
 
-        {activeTab === "runtime" && (
-          <>
-            {renderRuntimeCard()}
-            {renderLatencyCard()}
-          </>
-        )}
+        {activeTab === "runtime" && renderRuntimeCard()}
 
         {activeTab === "all" && (
           <div className="grid gap-4">
@@ -523,7 +454,6 @@ export const DesktopDetailsCard: React.FC<DesktopDetailsCardProps> = ({
             {renderHardwareCard()}
             {renderNetworkCard()}
             {renderRuntimeCard()}
-            {renderLatencyCard()}
           </div>
         )}
       </div>

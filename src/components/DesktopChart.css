@@ -26,36 +26,48 @@
   border-radius: 3px;
 }
 
-/* 图表网格布局 - 3列布局与移动端保持一致 */
+/* 图表网格布局 - 现代 3 列响应式设计 */
 .desktop-chart-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
+  gap: 1.25rem;
   width: 100%;
 }
 
 /* 2列布局用于较窄的屏幕 */
-@media (max-width: 1200px) {
+@media (max-width: 1180px) {
   .desktop-chart-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
   }
 }
 
-/* 图表卡片样式 */
+/* 1列布局用于极窄屏幕 */
+@media (max-width: 680px) {
+  .desktop-chart-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+}
+
+/* 图表卡片样式 - 现代玻璃质感 */
 .desktop-chart-card {
   background: var(--color-panel-solid);
-  border-radius: 8px;
-  padding: 1rem 1.25rem;
+  border-radius: 14px;
+  padding: 1.15rem 1.25rem 0.85rem;
   border: 1px solid var(--gray-a4);
-  transition: all 0.2s ease;
-  height: 200px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  min-height: 245px;
+  height: 245px;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.04);
 }
 
 .desktop-chart-card:hover {
-  border-color: var(--gray-a6);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border-color: var(--accent-a7);
+  box-shadow: 0 10px 24px -8px var(--accent-a3);
+  transform: translateY(-2px);
 }
 
 /* 图表头部 */
@@ -63,58 +75,82 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.5rem;
-  padding-bottom: 0.25rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--gray-a3);
+  gap: 8px;
 }
 
 .desktop-chart-title {
-  font-size: 1rem;
+  font-size: 0.925rem;
   font-weight: 600;
   color: var(--gray-12);
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.625rem;
+  min-width: 0;
 }
 
-.desktop-chart-value {
-  font-size: 0.875rem;
-  color: var(--gray-11);
+.desktop-chart-icon-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--accent-a2);
+  color: var(--accent-9);
+  flex-shrink: 0;
+}
+
+.desktop-chart-value-pill {
+  font-family: var(--mono-font, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--gray-12);
   text-align: right;
-  font-weight: 500;
+  background: var(--gray-a3);
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--gray-a4);
+  max-width: 70%;
+  line-height: 1.35;
 }
 
 /* 图表容器 */
 .desktop-chart-container {
   flex: 1;
-  margin: 0 -8px;
+  margin: 0 -4px -4px -8px;
   min-height: 0;
 }
 
 /* 自定义 Tooltip */
 .desktop-chart-tooltip {
-  background: var(--color-panel-solid) !important;
+  background: rgba(var(--color-panel-solid-rgb, 255, 255, 255), 0.92) !important;
+  backdrop-filter: blur(8px);
   border: 1px solid var(--gray-a5) !important;
   color: var(--gray-12);
-  border-radius: 8px;
-  padding: 0.75rem !important;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);
 }
 
 .desktop-chart-tooltip .tooltip-time {
   color: var(--gray-10);
   font-size: 0.75rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.4rem;
   font-weight: 500;
+  font-family: var(--mono-font, monospace);
 }
 
 .desktop-chart-tooltip .tooltip-item {
   color: var(--gray-12);
-  font-size: 0.875rem;
-  margin: 0.25rem 0;
+  font-size: 0.825rem;
+  margin: 0.2rem 0;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  font-weight: 500;
 }
 
 .desktop-chart-tooltip .tooltip-dot {
@@ -127,8 +163,8 @@
 /* 图表样式优化 */
 .desktop-chart-container .recharts-cartesian-grid-horizontal line {
   stroke: var(--gray-a3);
-  stroke-dasharray: 2 4;
-  opacity: 0.5;
+  stroke-dasharray: 3 3;
+  opacity: 0.7;
 }
 
 .desktop-chart-container .recharts-cartesian-grid-vertical line {
@@ -145,16 +181,17 @@
 
 .desktop-chart-container .recharts-cartesian-axis-tick-value {
   fill: var(--gray-9);
-  font-size: 0.625rem;
+  font-size: 0.675rem;
   font-weight: 500;
+  font-family: var(--mono-font, monospace);
 }
 
 .desktop-chart-container .recharts-xAxis .recharts-cartesian-axis-tick-value {
-  fill: var(--gray-8);
+  fill: var(--gray-9);
 }
 
 .desktop-chart-container .recharts-yAxis .recharts-cartesian-axis-tick-value {
-  fill: var(--gray-8);
+  fill: var(--gray-9);
 }
 
 .desktop-chart-container .recharts-tooltip-cursor {
@@ -169,7 +206,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 200px;
+  height: 220px;
   font-size: 0.875rem;
 }
 
@@ -183,38 +220,34 @@
 
 /* 响应式调整 */
 @media (max-width: 768px) {
-  .desktop-chart-grid {
-    grid-template-columns: 1fr;
-  }
-  
   .desktop-chart-card {
-    height: 180px;
-  }
-}
-
-/* 移动端网格布局 */
-@media (max-width: 640px) {
-  .desktop-chart-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.75rem;
-  }
-  
-  .desktop-chart-card {
-    height: 160px;
+    height: 220px;
+    min-height: 220px;
+    padding: 0.9rem 1rem 0.6rem;
   }
 }
 
 /* 深色模式优化 */
-[data-theme="dark"] .desktop-chart-card {
-  background: var(--gray-a2);
-  border-color: var(--gray-a5);
+[data-theme="dark"] .desktop-chart-card,
+.dark .desktop-chart-card {
+  background: var(--card, var(--gray-a2));
+  border-color: var(--border, var(--gray-a4));
 }
 
-[data-theme="dark"] .desktop-chart-card:hover {
-  border-color: var(--gray-a7);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+[data-theme="dark"] .desktop-chart-card:hover,
+.dark .desktop-chart-card:hover {
+  border-color: var(--accent-a7);
+  box-shadow: 0 10px 24px -8px rgba(0, 0, 0, 0.4);
 }
 
-[data-theme="dark"] .desktop-chart-header {
+[data-theme="dark"] .desktop-chart-header,
+.dark .desktop-chart-header {
   border-bottom-color: var(--gray-a4);
+}
+
+[data-theme="dark"] .desktop-chart-value-pill,
+.dark .desktop-chart-value-pill {
+  background: var(--gray-a3);
+  border-color: var(--gray-a4);
+  color: var(--gray-12);
 }

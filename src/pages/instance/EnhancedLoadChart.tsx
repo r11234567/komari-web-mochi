@@ -432,138 +432,155 @@ const EnhancedLoadChart = ({ data = [] }: EnhancedLoadChartProps) => {
       {/* 图表网格 */}
       {!loading && !error && (
         <div className="desktop-chart-grid">
-          {charts.map((chart, index) => (
-            <Card key={index} className="desktop-chart-card">
-              <div className="desktop-chart-header">
-                <div className="desktop-chart-title">
-                  {chart.icon}
-                  {chart.title}
+          {charts.map((chart, index) => {
+            const gradIdPrimary = `load-grad-${index}-0`;
+            const gradIdSecondary = `load-grad-${index}-1`;
+            const primaryColor = Array.isArray(chart.color) ? chart.color[0] : chart.color;
+            const secondaryColor = Array.isArray(chart.color) && chart.color[1] ? chart.color[1] : primaryColor;
+
+            return (
+              <Card key={index} className="desktop-chart-card">
+                <div className="desktop-chart-header">
+                  <div className="desktop-chart-title">
+                    <span className="desktop-chart-icon-box">{chart.icon}</span>
+                    <span>{chart.title}</span>
+                  </div>
+                  <div className="desktop-chart-value-pill">{chart.value}</div>
                 </div>
-                <div className="desktop-chart-value">{chart.value}</div>
-              </div>
-              <div className="desktop-chart-container">
-                <ResponsiveContainer width="100%" height="100%">
-                  {chart.type === "area" ? (
-                    <AreaChart data={chart.data} margin={chartConfig.margin}>
-                      <CartesianGrid strokeDasharray="2 4" vertical={false} stroke="var(--gray-a3)" />
-                      <XAxis
-                        dataKey="time"
-                        tickFormatter={(value, index) => {
-                          if (index === 0 || index === chart.data.length - 1) {
-                            return new Date(value).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            });
-                          }
-                          return "";
-                        }}
-                        interval={0}
-                        tick={{ fontSize: 11 }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        domain={chart.domain}
-                        tickFormatter={(value) => {
-                          if (chart.dataKey === "disk") return formatBytes(value);
-                          if (value === 0) return "";
-                          return chart.formatter ? chart.formatter(value) : value;
-                        }}
-                        tick={{ fontSize: 11 }}
-                        axisLine={false}
-                        tickLine={false}
-                        width={45}
-                      />
-                      <Tooltip content={<CustomTooltip />} />
-                      {chart.isMultiLine && Array.isArray(chart.dataKey) ? (
-                        chart.dataKey.map((key, i) => (
+                <div className="desktop-chart-container">
+                  <ResponsiveContainer width="100%" height="100%">
+                    {chart.type === "area" ? (
+                      <AreaChart data={chart.data} margin={chartConfig.margin}>
+                        <defs>
+                          <linearGradient id={gradIdPrimary} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor={primaryColor} stopOpacity={0.4} />
+                            <stop offset="95%" stopColor={primaryColor} stopOpacity={0.02} />
+                          </linearGradient>
+                          {chart.isMultiLine && (
+                            <linearGradient id={gradIdSecondary} x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor={secondaryColor} stopOpacity={0.35} />
+                              <stop offset="95%" stopColor={secondaryColor} stopOpacity={0.02} />
+                            </linearGradient>
+                          )}
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--gray-a3)" />
+                        <XAxis
+                          dataKey="time"
+                          tickFormatter={(value, index) => {
+                            if (index === 0 || index === chart.data.length - 1) {
+                              return new Date(value).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              });
+                            }
+                            return "";
+                          }}
+                          interval={0}
+                          tick={{ fontSize: 11, fill: "var(--gray-9)" }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          domain={chart.domain}
+                          tickFormatter={(value) => {
+                            if (chart.dataKey === "disk") return formatBytes(value);
+                            if (value === 0) return "";
+                            return chart.formatter ? chart.formatter(value) : value;
+                          }}
+                          tick={{ fontSize: 11, fill: "var(--gray-9)" }}
+                          axisLine={false}
+                          tickLine={false}
+                          width={45}
+                        />
+                        <Tooltip content={<CustomTooltip />} />
+                        {chart.isMultiLine && Array.isArray(chart.dataKey) ? (
+                          chart.dataKey.map((key, i) => (
+                            <Area
+                              key={key}
+                              type="monotone"
+                              dataKey={key}
+                              stroke={Array.isArray(chart.color) ? chart.color[i] : chart.color}
+                              fill={`url(#${i === 0 ? gradIdPrimary : gradIdSecondary})`}
+                              strokeWidth={chartConfig.strokeWidth}
+                              dot={false}
+                              animationDuration={0}
+                              connectNulls={connectNulls}
+                            />
+                          ))
+                        ) : (
                           <Area
-                            key={key}
                             type="monotone"
-                            dataKey={key}
-                            stroke={Array.isArray(chart.color) ? chart.color[i] : chart.color}
-                            fill={Array.isArray(chart.color) ? chart.color[i] : chart.color}
-                            fillOpacity={0.3}
+                            dataKey={chart.dataKey as string}
+                            stroke={chart.color as string}
+                            fill={`url(#${gradIdPrimary})`}
                             strokeWidth={chartConfig.strokeWidth}
                             dot={false}
                             animationDuration={0}
                             connectNulls={connectNulls}
                           />
-                        ))
-                      ) : (
-                        <Area
-                          type="monotone"
-                          dataKey={chart.dataKey as string}
-                          stroke={chart.color as string}
-                          fill={chart.color as string}
-                          fillOpacity={0.3}
-                          strokeWidth={chartConfig.strokeWidth}
-                          dot={false}
-                          animationDuration={0}
-                          connectNulls={connectNulls}
+                        )}
+                      </AreaChart>
+                    ) : (
+                      <LineChart data={chart.data} margin={chartConfig.margin}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--gray-a3)" />
+                        <XAxis
+                          dataKey="time"
+                          tickFormatter={(value, index) => {
+                            if (index === 0 || index === chart.data.length - 1) {
+                              return new Date(value).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              });
+                            }
+                            return "";
+                          }}
+                          interval={0}
+                          tick={{ fontSize: 11, fill: "var(--gray-9)" }}
+                          axisLine={false}
+                          tickLine={false}
                         />
-                      )}
-                    </AreaChart>
-                  ) : (
-                    <LineChart data={chart.data} margin={chartConfig.margin}>
-                      <CartesianGrid strokeDasharray="2 4" vertical={false} stroke="var(--gray-a3)" />
-                      <XAxis
-                        dataKey="time"
-                        tickFormatter={(value, index) => {
-                          if (index === 0 || index === chart.data.length - 1) {
-                            return new Date(value).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            });
-                          }
-                          return "";
-                        }}
-                        interval={0}
-                        tick={{ fontSize: 11 }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        tickFormatter={(value) => {
-                          if (value === 0) return "";
-                          return chart.formatter ? chart.formatter(value) : value;
-                        }}
-                        tick={{ fontSize: 11 }}
-                        axisLine={false}
-                        tickLine={false}
-                        width={45}
-                      />
-                      <Tooltip content={<CustomTooltip />} />
-                      {chart.isMultiLine && Array.isArray(chart.dataKey) ? (
-                        chart.dataKey.map((key, i) => (
+                        <YAxis
+                          tickFormatter={(value) => {
+                            if (value === 0) return "";
+                            return chart.formatter ? chart.formatter(value) : value;
+                          }}
+                          tick={{ fontSize: 11, fill: "var(--gray-9)" }}
+                          axisLine={false}
+                          tickLine={false}
+                          width={45}
+                        />
+                        <Tooltip content={<CustomTooltip />} />
+                        {chart.isMultiLine && Array.isArray(chart.dataKey) ? (
+                          chart.dataKey.map((key, i) => (
+                            <Line
+                              key={key}
+                              type="monotone"
+                              dataKey={key}
+                              stroke={Array.isArray(chart.color) ? chart.color[i] : chart.color}
+                              strokeWidth={chartConfig.strokeWidth}
+                              dot={false}
+                              animationDuration={0}
+                              connectNulls={connectNulls}
+                            />
+                          ))
+                        ) : (
                           <Line
-                            key={key}
                             type="monotone"
-                            dataKey={key}
-                            stroke={Array.isArray(chart.color) ? chart.color[i] : chart.color}
+                            dataKey={chart.dataKey as string}
+                            stroke={chart.color as string}
                             strokeWidth={chartConfig.strokeWidth}
                             dot={false}
                             animationDuration={0}
                             connectNulls={connectNulls}
                           />
-                        ))
-                      ) : (
-                        <Line
-                          type="monotone"
-                          dataKey={chart.dataKey as string}
-                          stroke={chart.color as string}
-                          strokeWidth={chartConfig.strokeWidth}
-                          dot={false}
-                          animationDuration={0}
-                          connectNulls={connectNulls}
-                        />
-                      )}
-                    </LineChart>
-                  )}
-                </ResponsiveContainer>
-              </div>
-            </Card>
-          ))}
+                        )}
+                      </LineChart>
+                    )}
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

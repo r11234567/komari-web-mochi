@@ -53,7 +53,24 @@ async function main() {
     console.log("Navigating to GPU node detail page...");
     await browser.navigate("http://localhost:3456/instance/247679f3-f4f0-4d3c-b98c-8dfabc82edda");
     await new Promise((r) => setTimeout(r, 3000));
-    await browser.screenshot(path.join(screenshotsDir, "03_instance_gpu_desktop.png"), true);
+    await browser.screenshot(path.join(screenshotsDir, "03_instance_gpu_desktop_load.png"), true);
+
+    // Switch to Ping tab
+    console.log("Switching to Ping tab on GPU node detail page...");
+    const pingTabClicked = await browser.evaluate(`
+      (() => {
+        const toggleButtons = Array.from(document.querySelectorAll('.node-detail-chart-header button, .node-detail-chart-header [role="radio"]'));
+        const pingBtn = toggleButtons.find(b => b.textContent && (b.textContent.includes('Ping') || b.textContent.includes('延迟')));
+        if (pingBtn) {
+          pingBtn.click();
+          return true;
+        }
+        return false;
+      })()
+    `);
+    console.log("Ping tab clicked:", pingTabClicked);
+    await new Promise((r) => setTimeout(r, 2500));
+    await browser.screenshot(path.join(screenshotsDir, "03_instance_gpu_desktop_ping.png"), true);
 
     // 4. CPU Node Instance Detail Page (verify NO GPU shown)
     console.log("Navigating to CPU node detail page...");

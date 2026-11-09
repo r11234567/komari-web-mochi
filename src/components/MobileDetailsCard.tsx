@@ -19,12 +19,10 @@ import {
   MemoryStick,
   Layers,
   Calendar,
-  Radio,
 } from "lucide-react";
 import UsageBar from "./UsageBar";
 import type { NodeBasicInfo } from "@/contexts/NodeListContext";
 import type { Record } from "@/types/LiveData";
-import { usePingSummary } from "@/hooks/use-ping-summary";
 
 interface MobileDetailsCardProps {
   node: NodeBasicInfo;
@@ -67,8 +65,6 @@ export const MobileDetailsCard: React.FC<MobileDetailsCardProps> = ({
   const hasTrafficLimit = Number(node.traffic_limit) > 0 && Boolean(node.traffic_limit_type);
   const trafficResetCountdown = formatTrafficResetTime(node.traffic_next_reset, t);
 
-  const pingSummary = usePingSummary(node.uuid);
-
   const getTrafficTypeDisplay = (type?: string) => {
     switch (type) {
       case "max": return "MAX";
@@ -80,23 +76,12 @@ export const MobileDetailsCard: React.FC<MobileDetailsCardProps> = ({
     }
   };
 
-  const formatLatency = (value: number | null) =>
-    value == null ? "-" : `${Math.round(value)} ms`;
-  const formatLoss = (value: number | null) =>
-    value == null ? "-" : `${value.toFixed(1)}%`;
   const formatLoad = (value?: number) =>
     typeof value === "number" && Number.isFinite(value) ? value.toFixed(2) : "-";
 
   const loadLine = `1m: ${formatLoad(liveData?.load?.load1)} / 5m: ${formatLoad(liveData?.load?.load5)} / 15m: ${formatLoad(liveData?.load?.load15)}`;
   const uptimeLabel = liveData?.uptime ? formatUptime(liveData.uptime, t) : "-";
   const updatedLabel = liveData?.updated_at ? new Date(liveData.updated_at).toLocaleString() : "-";
-
-  const latencyRows = pingSummary.items.map((item) => ({
-    name: item.name,
-    current: formatLatency(item.current),
-    avg: formatLatency(item.avg),
-    loss: formatLoss(item.loss),
-  }));
 
   return (
     <div className="w-full flex flex-col gap-3">
@@ -301,44 +286,6 @@ export const MobileDetailsCard: React.FC<MobileDetailsCardProps> = ({
             <MobileInfoRow icon={<Server size={14} />} label={t("nodeCard.os")} value={node.os} />
             <MobileInfoRow icon={<Layers size={14} />} label={t("nodeCard.kernelVersion")} value={node.kernel_version || "Unknown"} />
             <MobileInfoRow icon={<Clock size={14} />} label={t("nodeCard.last_updated")} value={updatedLabel} />
-          </Flex>
-        </Card>
-      )}
-
-      {/* Latency table if any */}
-      {latencyRows.length > 0 && (
-        <Card style={{ borderRadius: "12px" }}>
-          <Flex direction="column" gap="2">
-            <Flex align="center" gap="1">
-              <Radio size={14} className="text-accent-9" />
-              <Text size="2" weight="bold">{t("nodeCard.ping", { defaultValue: "延迟监测" })}</Text>
-            </Flex>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs" style={{ borderCollapse: "separate", borderSpacing: "0 4px" }}>
-                <thead>
-                  <tr className="text-gray-10">
-                    <th className="py-1 px-2">{t("Task Name", { defaultValue: "任务" })}</th>
-                    <th className="py-1 px-2 text-right">{t("Current", { defaultValue: "当前" })}</th>
-                    <th className="py-1 px-2 text-right">{t("Avg", { defaultValue: "平均" })}</th>
-                    <th className="py-1 px-2 text-right">{t("Loss", { defaultValue: "丢包" })}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {latencyRows.map((row) => (
-                    <tr key={row.name} style={{ backgroundColor: "var(--gray-a2)" }}>
-                      <td className="py-1.5 px-2 font-medium truncate max-w-[100px]">{row.name}</td>
-                      <td className="py-1.5 px-2 text-right font-mono">{row.current}</td>
-                      <td className="py-1.5 px-2 text-right font-mono">{row.avg}</td>
-                      <td className="py-1.5 px-2 text-right font-mono">
-                        <Badge color={row.loss === "0.0%" ? "green" : "red"} variant="soft" size="1">
-                          {row.loss}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
           </Flex>
         </Card>
       )}

@@ -1,18 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Flex, SegmentedControl, Card, Switch, Button } from "@radix-ui/themes";
+import { SegmentedControl, Switch, Button, Badge } from "@radix-ui/themes";
 import { usePublicInfo } from "@/contexts/PublicInfoContext";
 import Loading from "@/components/loading";
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-  ChartLegend,
 } from "@/components/ui/chart";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 import { cutPeakValues, interpolateNullsLinear } from "@/utils/RecordHelper";
 import Tips from "@/components/ui/tips";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Radio } from "lucide-react";
 import { getPingRecords } from "@/api/connect";
 import { buildTimeRanges } from "@/utils/timeRanges";
 
@@ -278,8 +277,9 @@ const PingChart = ({ uuid }: { uuid: string }) => {
   }, [remoteData, tasks]);
 
   const [hiddenLines, setHiddenLines] = useState<Record<string, boolean>>({});
-  const handleLegendClick = useCallback((e: any) => {
-    const key = e.dataKey;
+
+  const toggleLine = useCallback((id: number) => {
+    const key = String(id);
     setHiddenLines((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
@@ -293,13 +293,9 @@ const PingChart = ({ uuid }: { uuid: string }) => {
   }, [tasks, hiddenLines]);
 
   return (
-    <Flex
-      direction="column"
-      align="center"
-      gap="4"
-      className="w-full max-w-screen"
-    >
-      <div className="w-full overflow-x-auto px-2">
+    <div className="w-full flex flex-col gap-4">
+      {/* 顶部控制栏：时间范围选择 */}
+      <div className="w-full overflow-x-auto px-1">
         <div className="w-max mx-auto">
           <SegmentedControl.Root
             value={view}
@@ -326,201 +322,263 @@ const PingChart = ({ uuid }: { uuid: string }) => {
       </div>
 
       {loading && (
-        <div style={{ textAlign: "center", width: "100%" }}>
+        <div className="py-12 flex justify-center items-center w-full">
           <Loading />
         </div>
       )}
+
       {error && (
-        <div style={{ color: "red", textAlign: "center", width: "100%" }}>
+        <div className="py-8 text-center text-red-11 w-full text-sm font-medium">
           {error}
         </div>
       )}
-      {latestValues.length > 0 ? (
-        <Card className="w-full max-w-[900px] mb-2">
-          <Tips className="absolute top-0 right-0 m-2">
-            <label>{t("chart.loss_tips")}</label>
-          </Tips>
-          <div
-            className="grid gap-2 mb-2 w-full"
-            style={{
-              gridTemplateColumns: `repeat(auto-fit, minmax(240px,1fr))`,
-            }}
-          >
-            {latestValues.map((task) => (
-              <div key={task.id} className="flex flex-row items-center rounded">
-                <div
-                  className="w-1 h-6 rounded-xs "
-                  style={{ backgroundColor: task.color }}
+
+      {!loading && !error && latestValues.length > 0 && (
+        <div className="w-full rounded-2xl border border-gray-a4 bg-panel-solid p-4 md:p-5 shadow-xs flex flex-col gap-4">
+          {/* Header of targets section */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-gray-a3">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-accent-a2 text-accent-9 flex items-center justify-center">
+                <Radio size={16} />
+              </div>
+              <span className="font-bold text-sm text-gray-12">
+                {t("nodeCard.ping", { defaultValue: "测速节点监控" })}
+              </span>
+              <Badge color="blue" variant="soft" size="1">
+                {tasks.length} {t("chart.targets", { defaultValue: "目标" })}
+              </Badge>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* 削峰平滑 */}
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="cut-peak"
+                  checked={cutPeak}
+                  onCheckedChange={setCutPeak}
+                  size="1"
                 />
-                <div className="flex items-start justify-center ml-1 flex-col">
-                  <div className="flex items-center gap-1 -mb-1">
-                    <label className="font-bold text-md">{task.name}</label>
-                    <Tips size="14" color="gray">
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-                        {typeof task.min === "number" && (
-                          <>
-                            <span className="text-muted-foreground">
-                              {t("chart.min")}
-                            </span>
-                            <span className="font-mono">
-                              {Math.round(task.min)} ms
-                            </span>
-                          </>
-                        )}
-                        {typeof task.max === "number" && (
-                          <>
-                            <span className="text-muted-foreground">
-                              {t("chart.max")}
-                            </span>
-                            <span className="font-mono">
-                              {Math.round(task.max)} ms
-                            </span>
-                          </>
-                        )}
-                        {typeof task.avg === "number" && (
-                          <>
-                            <span className="text-muted-foreground">
-                              {t("chart.avg")}
-                            </span>
-                            <span className="font-mono">
-                              {Math.round(task.avg)} ms
-                            </span>
-                          </>
-                        )}
-                        {typeof task.latest === "number" && (
-                          <>
-                            <span className="text-muted-foreground">
-                              {t("chart.latest")}
-                            </span>
-                            <span className="font-mono">
-                              {Math.round(task.latest)} ms
-                            </span>
-                          </>
-                        )}
-                        {typeof task.p99_p50_ratio === "number" && (
-                          <>
-                            <span className="text-muted-foreground">
-                              {t("chart.volatility")}
-                            </span>
-                            <span className="font-mono">
-                              {task.p99_p50_ratio.toFixed(2)}
-                            </span>
-                          </>
-                        )}
-                        {typeof task.p50 === "number" && (
-                          <>
-                            <span className="text-muted-foreground">p50</span>
-                            <span className="font-mono">
-                              {Math.round(task.p50)} ms
-                            </span>
-                          </>
-                        )}
-                        {typeof task.p99 === "number" && (
-                          <>
-                            <span className="text-muted-foreground">p99</span>
-                            <span className="font-mono">
-                              {Math.round(task.p99)} ms
-                            </span>
-                          </>
-                        )}
-                        {typeof task.loss === "number" && (
-                          <>
-                            <span className="text-muted-foreground">
-                              {t("chart.lossRate")}
-                            </span>
-                            <span className="font-mono">
-                              {Number(task.loss).toFixed(1)}%
-                            </span>
-                          </>
-                        )}
-                        {typeof task.interval === "number" && (
-                          <>
-                            <span className="text-muted-foreground">
-                              {t("chart.interval")}
-                            </span>
-                            <span className="font-mono">{task.interval}s</span>
-                          </>
-                        )}
-                        {task.type && (
-                          <>
-                            <span className="text-muted-foreground">
-                              {t("chart.type")}
-                            </span>
-                            <span className="font-mono uppercase">
-                              {task.type}
-                            </span>
-                          </>
-                        )}
-                        {typeof task.total === "number" && (
-                          <>
-                            <span className="text-muted-foreground">
-                              {t("chart.total")}
-                            </span>
-                            <span className="font-mono">{task.total}</span>
-                          </>
-                        )}
-                      </div>
-                    </Tips>
-                  </div>
-                  <div className="flex gap-2 text-sm text-muted-foreground">
-                    <span>
-                      {task.value !== null
-                        ? `${Number(task.value).toFixed(0)} ms`
-                        : "-"}
-                    </span>
-                    <span>
-                      {`${Number(task.loss).toFixed(1)}%${t("chart.lossRate")}`}
-                    </span>
-                    {typeof task.p99_p50_ratio === "number" && (
-                      <span title="p99/p50">
-                        {task.p99_p50_ratio.toFixed(1)}
-                        {t("chart.volatility")}
+                <label
+                  htmlFor="cut-peak"
+                  className="text-xs font-medium text-gray-11 flex items-center gap-1 cursor-pointer select-none"
+                >
+                  {t("chart.cutPeak")}
+                  <Tips size="14">
+                    <span dangerouslySetInnerHTML={{ __html: t("chart.cutPeak_tips") }} />
+                  </Tips>
+                </label>
+              </div>
+
+              {/* 全部显示 / 全部隐藏 */}
+              <Button
+                variant="soft"
+                size="1"
+                onClick={toggleAllLines}
+                className="flex items-center gap-1.5 text-xs font-medium cursor-pointer"
+              >
+                {tasks.every((task) => hiddenLines[String(task.id)]) ? (
+                  <>
+                    <Eye size={13} />
+                    <span>{t("chart.showAll")}</span>
+                  </>
+                ) : (
+                  <>
+                    <EyeOff size={13} />
+                    <span>{t("chart.hideAll")}</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Metric Targets Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 w-full">
+            {latestValues.map((task) => {
+              const isHidden = !!hiddenLines[String(task.id)];
+              const latencyColor =
+                task.value === null
+                  ? "text-gray-9"
+                  : task.value < 80
+                  ? "text-green-11"
+                  : task.value < 180
+                  ? "text-amber-11"
+                  : "text-red-11";
+
+              return (
+                <div
+                  key={task.id}
+                  onClick={() => toggleLine(task.id)}
+                  className={`group relative p-2.5 rounded-xl border transition-all duration-200 cursor-pointer select-none flex flex-col justify-between gap-2 ${
+                    isHidden
+                      ? "opacity-45 bg-gray-a2 border-gray-a3 hover:opacity-75"
+                      : "bg-gray-a2 hover:bg-gray-a3 border-gray-a4 hover:border-accent-7 hover:shadow-xs"
+                  }`}
+                  style={{
+                    borderLeftWidth: "3px",
+                    borderLeftColor: isHidden ? "var(--gray-7)" : task.color,
+                  }}
+                  title={isHidden ? t("chart.click_to_show", { defaultValue: "点击显示此折线" }) : t("chart.click_to_hide", { defaultValue: "点击隐藏此折线" })}
+                >
+                  <div className="flex items-center justify-between gap-1.5 min-w-0">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{
+                          backgroundColor: isHidden ? "var(--gray-8)" : task.color,
+                          boxShadow: !isHidden ? `0 0 6px ${task.color}90` : "none",
+                        }}
+                      />
+                      <span className={`font-semibold text-xs truncate ${isHidden ? "line-through text-gray-9" : "text-gray-12"}`}>
+                        {task.name}
                       </span>
-                    )}
+                    </div>
+
+                    <div onClick={(e) => e.stopPropagation()} className="shrink-0">
+                      <Tips size="13" color="gray">
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                          {typeof task.min === "number" && (
+                            <>
+                              <span className="text-gray-10">{t("chart.min")}</span>
+                              <span className="font-mono text-right">{Math.round(task.min)} ms</span>
+                            </>
+                          )}
+                          {typeof task.max === "number" && (
+                            <>
+                              <span className="text-gray-10">{t("chart.max")}</span>
+                              <span className="font-mono text-right">{Math.round(task.max)} ms</span>
+                            </>
+                          )}
+                          {typeof task.avg === "number" && (
+                            <>
+                              <span className="text-gray-10">{t("chart.avg")}</span>
+                              <span className="font-mono text-right">{Math.round(task.avg)} ms</span>
+                            </>
+                          )}
+                          {typeof task.latest === "number" && (
+                            <>
+                              <span className="text-gray-10">{t("chart.latest")}</span>
+                              <span className="font-mono text-right">{Math.round(task.latest)} ms</span>
+                            </>
+                          )}
+                          {typeof task.p50 === "number" && (
+                            <>
+                              <span className="text-gray-10">P50</span>
+                              <span className="font-mono text-right">{Math.round(task.p50)} ms</span>
+                            </>
+                          )}
+                          {typeof task.p99 === "number" && (
+                            <>
+                              <span className="text-gray-10">P99</span>
+                              <span className="font-mono text-right">{Math.round(task.p99)} ms</span>
+                            </>
+                          )}
+                          {typeof task.p99_p50_ratio === "number" && (
+                            <>
+                              <span className="text-gray-10">{t("chart.volatility")}</span>
+                              <span className="font-mono text-right">{task.p99_p50_ratio.toFixed(2)}</span>
+                            </>
+                          )}
+                          {typeof task.loss === "number" && (
+                            <>
+                              <span className="text-gray-10">{t("chart.lossRate")}</span>
+                              <span className="font-mono text-right">{Number(task.loss).toFixed(1)}%</span>
+                            </>
+                          )}
+                          {typeof task.interval === "number" && (
+                            <>
+                              <span className="text-gray-10">{t("chart.interval")}</span>
+                              <span className="font-mono text-right">{task.interval}s</span>
+                            </>
+                          )}
+                          {task.type && (
+                            <>
+                              <span className="text-gray-10">{t("chart.type")}</span>
+                              <span className="font-mono uppercase text-right">{task.type}</span>
+                            </>
+                          )}
+                          {typeof task.total === "number" && (
+                            <>
+                              <span className="text-gray-10">{t("chart.total")}</span>
+                              <span className="font-mono text-right">{task.total}</span>
+                            </>
+                          )}
+                        </div>
+                      </Tips>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-a3">
+                    <div className="flex items-baseline gap-1 font-mono">
+                      <span className={`font-bold text-sm ${latencyColor}`}>
+                        {task.value !== null ? Math.round(task.value) : "-"}
+                      </span>
+                      {task.value !== null && <span className="text-[10px] text-gray-9">ms</span>}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                      {typeof task.loss === "number" && (
+                        <Badge
+                          size="1"
+                          color={task.loss > 0 ? "red" : "green"}
+                          variant="soft"
+                          className="text-[10px] px-1 py-0"
+                        >
+                          {Number(task.loss).toFixed(1)}%
+                        </Badge>
+                      )}
+                      {typeof task.p99_p50_ratio === "number" && (
+                        <span
+                          className="text-[10px] text-gray-10 font-mono bg-gray-a3 px-1 py-0.5 rounded"
+                          title="P99/P50 波动率"
+                        >
+                          ~{task.p99_p50_ratio.toFixed(1)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
-        </Card>
-      ) : (
-        <div className="w-full max-w-[900px] text-center text-muted-foreground mb-2">
-          {t("common.none")}
         </div>
       )}
-      <Card className="w-full max-w-[900px]">
+
+      {/* Line Chart Card */}
+      <div className="w-full rounded-2xl border border-gray-a4 bg-panel-solid p-4 md:p-5 shadow-xs">
         {chartData.length === 0 ? (
-          <div className="w-full h-40 flex items-center justify-center text-muted-foreground">
+          <div className="w-full h-48 flex items-center justify-center text-gray-9 text-sm">
             {t("common.none")}
           </div>
         ) : (
-          <ChartContainer config={chartConfig}>
+          <ChartContainer config={chartConfig} className="w-full h-[320px] md:h-[360px]">
             <LineChart
               data={chartData}
               accessibilityLayer
-              margin={{ top: 0, right: 16, bottom: 0, left: 16 }}
+              margin={{ top: 10, right: 16, bottom: 10, left: 10 }}
             >
-              <CartesianGrid vertical={false} />
+              <CartesianGrid vertical={false} stroke="var(--gray-a3)" strokeDasharray="3 3" />
               <XAxis
                 dataKey="time"
                 tickLine={false}
+                axisLine={false}
                 tickFormatter={timeFormatter}
                 interval="preserveStartEnd"
-                minTickGap={30}
+                minTickGap={40}
+                tick={{ fontSize: 11, fill: "var(--gray-9)" }}
                 allowDuplicatedCategory={false}
               />
               <YAxis
                 tickLine={false}
                 axisLine={false}
-                unit="ms"
+                unit=" ms"
                 allowDecimals={false}
                 orientation="left"
                 type="number"
-                tick={{ dx: -10 }}
-                mirror={true}
+                tick={{ fontSize: 11, fill: "var(--gray-9)" }}
+                width={50}
               />
               <ChartTooltip
-                cursor={false}
+                cursor={{ stroke: "var(--gray-a6)", strokeWidth: 1, strokeDasharray: "3 3" }}
                 formatter={(v: any) => `${Math.round(v)} ms`}
                 content={
                   <ChartTooltipContent
@@ -529,73 +587,25 @@ const PingChart = ({ uuid }: { uuid: string }) => {
                   />
                 }
               />
-              <ChartLegend onClick={handleLegendClick} />
-              {(() => {
-                return tasks.map((task, idx) => {
-                  const connect = false; // 由插值控制连贯性，避免跨越大空洞的错误连接
-                  return (
-                    <Line
-                      key={task.id}
-                      dataKey={String(task.id)}
-                      name={task.name}
-                      stroke={colors[idx % colors.length]}
-                      dot={false}
-                      isAnimationActive={false}
-                      strokeWidth={2}
-                      connectNulls={connect}
-                      type={cutPeak ? "basis" : "linear"}
-                      hide={!!hiddenLines[String(task.id)]}
-                    />
-                  );
-                });
-              })()}
+              {tasks.map((task, idx) => (
+                <Line
+                  key={task.id}
+                  dataKey={String(task.id)}
+                  name={task.name}
+                  stroke={colors[idx % colors.length]}
+                  dot={false}
+                  isAnimationActive={false}
+                  strokeWidth={2}
+                  connectNulls={false}
+                  type={cutPeak ? "basis" : "linear"}
+                  hide={!!hiddenLines[String(task.id)]}
+                />
+              ))}
             </LineChart>
           </ChartContainer>
         )}
-        {/* Cut Peak 开关和显示/隐藏所有按钮 */}
-        <div
-          className="flex items-center justify-between gap-4"
-          style={{ display: loading ? "none" : "flex" }}
-        >
-          <div className="flex items-center gap-2">
-            <Switch
-              id="cut-peak"
-              checked={cutPeak}
-              onCheckedChange={setCutPeak}
-            />
-            <label
-              htmlFor="cut-peak"
-              className="text-sm font-medium flex items-center gap-1 flex-row"
-            >
-              {t("chart.cutPeak")}
-              <Tips>
-                <span
-                  dangerouslySetInnerHTML={{ __html: t("chart.cutPeak_tips") }}
-                />
-              </Tips>
-            </label>
-          </div>
-          <Button
-            variant="soft"
-            size="2"
-            onClick={toggleAllLines}
-            className="flex items-center gap-2"
-          >
-            {tasks.every((task) => hiddenLines[String(task.id)]) ? (
-              <>
-                <Eye size={16} />
-                {t("chart.showAll")}
-              </>
-            ) : (
-              <>
-                <EyeOff size={16} />
-                {t("chart.hideAll")}
-              </>
-            )}
-          </Button>
-        </div>
-      </Card>
-    </Flex>
+      </div>
+    </div>
   );
 };
 
