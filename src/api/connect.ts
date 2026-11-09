@@ -3,6 +3,7 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { timestampDate, timestampFromDate } from "@bufbuild/protobuf/wkt";
 import { BrowserService, AgentStatus } from "@komari/proto/komari/browser/v1/browser_pb";
 import { MetricsService } from "@komari/proto/komari/metrics/v1/metrics_pb";
+import { PasswordLoginService } from "@komari/proto/komari/credential/v1/credential_pb";
 import type { AgentReport } from "@komari/proto/komari/report/v1/report_pb";
 import type { PublicInfo } from "@/contexts/PublicInfoContext";
 import type { NodeBasicInfo } from "@/contexts/NodeListContext";
@@ -19,6 +20,8 @@ const transport = createConnectTransport({
 
 const browser = createClient(BrowserService, transport);
 const metrics = createClient(MetricsService, transport);
+const passwordLogin = createClient(PasswordLoginService, transport);
+export { passwordLogin };
 const options = (signal?: AbortSignal, timeoutMs = 30_000) => ({ signal, timeoutMs });
 const number = (value: bigint | undefined) => Number(value ?? 0n);
 const iso = (value: Parameters<typeof timestampDate>[0] | undefined) =>
@@ -48,6 +51,7 @@ export async function listNodes(signal?: AbortSignal): Promise<NodeBasicInfo[]> 
   const response = await browser.listAgents({}, options(signal));
   return response.agents.map((agent) => {
     const basic = agent.basicInfo;
+    const trafficAccounting = agent.trafficAccounting;
     return {
       uuid: agent.agentId,
       name: agent.name,
@@ -71,6 +75,7 @@ export async function listNodes(signal?: AbortSignal): Promise<NodeBasicInfo[]> 
       group: basic?.group ?? "",
       traffic_limit: number(basic?.trafficLimitBytes),
       traffic_limit_type: basic?.trafficLimitType as NodeBasicInfo["traffic_limit_type"],
+      traffic_next_reset: iso(trafficAccounting?.nextReset) || undefined,
       expired_at: iso(basic?.expiresAt),
       created_at: iso(basic?.createdAt),
       updated_at: iso(basic?.updatedAt),
@@ -84,6 +89,18 @@ function reportToLive(report?: AgentReport): LiveRecord {
     ?? report?.networkInterfaces[0];
   const disk = report?.disks.find((item) => item.mountPoint === "aggregate")
     ?? report?.disks[0];
+  const gpus = resources?.gpus ?? [];
+  const gpuDevices = gpus.map((gpu) => ({
+    name: gpu.name,
+    memory_total: number(gpu.memoryTotalBytes),
+    memory_used: number(gpu.memoryUsedBytes),
+    utilization: gpu.utilizationPercent ?? 0,
+    temperature: gpu.temperatureCelsius ?? 0,
+  }));
+  const measuredGpus = gpus.filter((gpu) => gpu.utilizationPercent !== undefined);
+  const gpuAverage = measuredGpus.length
+    ? measuredGpus.reduce((sum, gpu) => sum + (gpu.utilizationPercent ?? 0), 0) / measuredGpus.length
+    : undefined;
   return {
     cpu: { usage: resources?.cpuPercent ?? 0 },
     ram: { used: number(resources?.memoryUsedBytes) },
@@ -104,6 +121,13 @@ function reportToLive(report?: AgentReport): LiveRecord {
       tcp: number(resources?.tcpConnectionCount),
       udp: number(resources?.udpConnectionCount),
     },
+    gpu: gpus.length
+      ? {
+          count: gpus.length,
+          average_usage: gpuAverage ?? 0,
+          detailed_info: gpuDevices,
+        }
+      : undefined,
     uptime: report?.system?.uptime ? Number(report.system.uptime.seconds) : 0,
     process: number(resources?.processCount),
     message: report?.diagnosticMessage ?? "",
@@ -146,6 +170,7 @@ const loadMetrics = [
   "cpu.usage", "memory.used", "memory.total", "swap.used", "swap.total",
   "load.average", "disk.used", "disk.total", "net.in.rate", "net.out.rate",
   "net.total.up", "net.total.down", "process.count", "connections.tcp", "connections.udp",
+  "gpu.usage", "gpu.device.usage", "gpu.memory.used", "gpu.memory.total",
 ];
 
 /**
@@ -204,7 +229,8 @@ async function fetchLoadRecords(
       if (!point.observedAt) continue;
       const time = timestampDate(point.observedAt).toISOString();
       const row = agentRows.get(time) ?? {
-        client: series.agentId, time, cpu: null, gpu: null, ram: null, ram_total: null,
+        client: series.agentId, time, cpu: null, gpu: null, gpu_memory: null,
+        gpu_memory_used: null, gpu_memory_total: null, ram: null, ram_total: null,
         swap: null, swap_total: null, load: null, temp: null, disk: null, disk_total: null,
         net_in: null, net_out: null, net_total_up: null, net_total_down: null,
         process: null, connections: null, connections_udp: null,
@@ -212,6 +238,12 @@ async function fetchLoadRecords(
       agentRows.set(time, row);
       const value = point.value ?? null;
       if (series.metric === "cpu.usage") row.cpu = value;
+      if (series.metric === "gpu.usage" || series.metric === "gpu.device.usage") row.gpu = value;
+      if (series.metric === "gpu.memory.used") row.gpu_memory_used = value;
+      if (series.metric === "gpu.memory.total") row.gpu_memory_total = value;
+      if (row.gpu_memory_total && row.gpu_memory_total > 0 && row.gpu_memory_used != null) {
+        row.gpu_memory = (row.gpu_memory_used / row.gpu_memory_total) * 100;
+      }
       if (series.metric === "memory.used") row.ram = value;
       if (series.metric === "memory.total") row.ram_total = value;
       if (series.metric === "swap.used") row.swap = value;

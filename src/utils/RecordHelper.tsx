@@ -5,6 +5,20 @@ export interface RecordFormat {
   time: string;
   cpu: number | null;
   gpu: number | null;
+  gpu_memory?: number | null;
+  gpu_memory_used?: number | null;
+  gpu_memory_total?: number | null;
+  gpu_detailed?: {
+    [index: number]: {
+      usage: number | null;
+      memory: number | null;
+      temperature: number | null;
+      device_index?: number;
+      device_name?: string;
+      mem_total?: number;
+      mem_used?: number;
+    };
+  };
   ram: number | null;
   ram_total: number | null;
   swap: number | null;
@@ -27,27 +41,47 @@ export function liveDataToRecords(
   liveData: Record[]
 ): RecordFormat[] {
   if (!liveData) return [];
-  return liveData.map((data) => ({
-    client: client,
-    time: data.updated_at || "",
-    cpu: data.cpu.usage ?? 0,
-    gpu: 0,
-    ram: data.ram.used ?? 0,
-    ram_total: 0,
-    swap: data.swap.used ?? 0,
-    swap_total: 0,
-    load: data.load.load1 ?? 0,
-    temp: 0,
-    disk: data.disk.used ?? 0,
-    disk_total: 0,
-    net_in: data.network?.down ?? 0,
-    net_out: data.network?.up ?? 0,
-    net_total_up: data.network?.totalUp ?? 0,
-    net_total_down: data.network?.totalDown ?? 0,
-    process: data.process ?? 0,
-    connections: data.connections.tcp ?? 0,
-    connections_udp: data.connections.udp ?? 0,
-  }));
+  return liveData.map((data) => {
+    const memTotal = data.gpu?.detailed_info?.reduce((acc, g) => acc + (g.memory_total || 0), 0) || 0;
+    const memUsed = data.gpu?.detailed_info?.reduce((acc, g) => acc + (g.memory_used || 0), 0) || 0;
+    const gpuMemPercent = memTotal > 0 ? (memUsed / memTotal) * 100 : null;
+    return {
+      client: client,
+      time: data.updated_at || "",
+      cpu: data.cpu?.usage ?? 0,
+      gpu: data.gpu?.average_usage ?? null,
+      gpu_memory: gpuMemPercent,
+      gpu_memory_used: memUsed,
+      gpu_memory_total: memTotal,
+      gpu_detailed: data.gpu?.detailed_info?.reduce((acc, gpu, index) => {
+        acc[index] = {
+          usage: gpu.utilization ?? null,
+          memory: gpu.memory_total ? (gpu.memory_used / gpu.memory_total) * 100 : 0,
+          temperature: gpu.temperature ?? null,
+          device_index: index,
+          device_name: gpu.name,
+          mem_total: gpu.memory_total,
+          mem_used: gpu.memory_used,
+        };
+        return acc;
+      }, {} as NonNullable<RecordFormat["gpu_detailed"]>),
+      ram: data.ram?.used ?? 0,
+      ram_total: 0,
+      swap: data.swap?.used ?? 0,
+      swap_total: 0,
+      load: data.load?.load1 ?? 0,
+      temp: 0,
+      disk: data.disk?.used ?? 0,
+      disk_total: 0,
+      net_in: data.network?.down ?? 0,
+      net_out: data.network?.up ?? 0,
+      net_total_up: data.network?.totalUp ?? 0,
+      net_total_down: data.network?.totalDown ?? 0,
+      process: data.process ?? 0,
+      connections: data.connections?.tcp ?? 0,
+      connections_udp: data.connections?.udp ?? 0,
+    };
+  });
 }
 
 /**

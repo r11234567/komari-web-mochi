@@ -1,4 +1,5 @@
 import { formatTrafficGB } from "@/utils/trafficDisplay";
+import { formatTrafficResetTime } from "@/utils/trafficDisplay";
 import {
   Card,
   Flex,
@@ -82,6 +83,10 @@ const Node = ({ basic, live, online }: NodeProps) => {
   const downloadSpeed = formatBytes(liveData.network.down);
   const totalUpload = formatTrafficGB(liveData.network.totalUp);
   const totalDownload = formatTrafficGB(liveData.network.totalDown);
+  const trafficResetCountdown = formatTrafficResetTime(basic.traffic_next_reset, t);
+  const hasGpu = Boolean(
+    liveData.gpu && (liveData.gpu.count > 0 || liveData.gpu.average_usage !== undefined)
+  );
   //const totalTraffic = formatTrafficGB(liveData.network.totalUp + liveData.network.totalDown);
   return (
     <Card
@@ -187,6 +192,34 @@ const Node = ({ basic, live, online }: NodeProps) => {
               ({formatBytes(liveData.disk.used)} /{" "}
               {formatBytes(basic.disk_total)})
             </Text>
+
+            {/* GPU Usage */}
+            {hasGpu && (
+              <>
+                <UsageBar label="GPU" value={liveData.gpu!.average_usage ?? 0} />
+                {(() => {
+                  const vramUsed = liveData.gpu?.detailed_info?.reduce((acc, g) => acc + (g.memory_used || 0), 0) ?? 0;
+                  const vramTotal = liveData.gpu?.detailed_info?.reduce((acc, g) => acc + (g.memory_total || 0), 0) ?? 0;
+                  if (vramTotal > 0) {
+                    const vramPct = (vramUsed / vramTotal) * 100;
+                    return (
+                      <>
+                        <UsageBar label="VRAM" value={vramPct} />
+                        <Text
+                          size="1"
+                          className="md:block hidden"
+                          color="gray"
+                          style={{ marginTop: "-4px" }}
+                        >
+                          ({formatBytes(vramUsed)} / {formatBytes(vramTotal)})
+                        </Text>
+                      </>
+                    );
+                  }
+                  return null;
+                })()}
+              </>
+            )}
           </Flex>
 
           {/* 流量显示 - 有限制时显示进度条，无限制时显示文本 */}
@@ -206,6 +239,7 @@ const Node = ({ basic, live, online }: NodeProps) => {
                   <Flex justify="between" gap="2">
                     <Text size="1" color="gray" style={{ marginTop: "-4px" }}>
                       {getTrafficTypeDisplay(basic.traffic_limit_type)}
+                      {trafficResetCountdown && ` (${trafficResetCountdown})`}
                     </Text>
                     <Text size="1" color="gray" style={{ marginTop: "-4px", textAlign: "right" }}>
                       {formatTrafficGB(getTrafficUsage(
@@ -232,6 +266,7 @@ const Node = ({ basic, live, online }: NodeProps) => {
                     liveData.network.totalDown,
                     basic.traffic_limit_type
                   ))} / {formatTrafficGB(basic.traffic_limit || 0)}) • ↑ {totalUpload} ↓ {totalDownload}
+                  {trafficResetCountdown && ` • ${trafficResetCountdown}`}
                 </Text>
               )}
             </>

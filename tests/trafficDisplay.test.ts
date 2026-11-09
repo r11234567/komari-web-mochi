@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { formatTrafficGB } from "../src/utils/trafficDisplay.ts";
+import { formatTrafficGB, formatTrafficResetTime } from "../src/utils/trafficDisplay.ts";
 
 test("reported calibrated totals use the same provider GB in every layout", () => {
   assert.equal(formatTrafficGB(70_450_000_000), "70.45 GB");
@@ -11,6 +11,25 @@ test("reported calibrated totals use the same provider GB in every layout", () =
   assert.equal(formatTrafficGB(131_020_000_000, false, 1), "131.02 GB");
   assert.equal(formatTrafficGB(590_558_003_200), "590.56 GB");
 });
+
+test("formatTrafficResetTime formats remaining days and hours properly", () => {
+  assert.equal(formatTrafficResetTime(undefined), "");
+  assert.equal(formatTrafficResetTime(null), "");
+  assert.equal(formatTrafficResetTime("invalid-date"), "");
+
+  // Past time
+  const past = new Date(Date.now() - 3600_000).toISOString();
+  assert.equal(formatTrafficResetTime(past), "还剩 0h");
+
+  // Future time: 5 hours ahead
+  const in5Hours = new Date(Date.now() + 5 * 3600_000 + 120_000).toISOString();
+  assert.equal(formatTrafficResetTime(in5Hours), "还剩 5h");
+
+  // Future time: 3 days and 7 hours ahead
+  const in3Days7Hours = new Date(Date.now() + (3 * 24 + 7) * 3600_000 + 120_000).toISOString();
+  assert.equal(formatTrafficResetTime(in3Days7Hours), "还剩 3d 7h");
+});
+
 test("cards, tables, summaries and details use traffic formatting for totals", () => {
   for (const name of ["Node", "NodeCompactCard", "NodeModernCardDynamic", "NodeTable", "DesktopDetailsCard", "MobileDetailsCard", "DetailsGrid", "StatusBar", "TaskDisplay"]) {
     const source = readFileSync(new URL(`../src/components/${name}.tsx`, import.meta.url), "utf8");

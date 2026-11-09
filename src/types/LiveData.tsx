@@ -1,6 +1,6 @@
 export type LiveData = {
-    online: string[];
-    data: { [key: string]: Record };
+  online: string[];
+  data: { [key: string]: Record };
 };
 
 export type Record = {
@@ -30,6 +30,17 @@ export type Record = {
   connections: {
     tcp: number;
     udp: number;
+  };
+  gpu?: {
+    count: number;
+    average_usage: number;
+    detailed_info: {
+      name: string;
+      memory_total: number;
+      memory_used: number;
+      utilization: number;
+      temperature: number;
+    }[];
   };
   uptime: number;
   process: number;

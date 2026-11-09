@@ -19,7 +19,7 @@ import {
 } from "recharts";
 import { usePublicInfo } from "@/contexts/PublicInfoContext";
 import Loading from "@/components/loading";
-import { Cpu, HardDrive, Server, Network, Activity, Link } from "lucide-react";
+import { Cpu, HardDrive, Server, Network, Activity, Link, Layers, MemoryStick } from "lucide-react";
 import "@/components/DesktopChart.css";
 import { getLoadRecords } from "@/api/connect";
 import { buildTimeRanges } from "@/utils/timeRanges";
@@ -181,6 +181,12 @@ const EnhancedLoadChart = ({ data = [] }: EnhancedLoadChartProps) => {
           } else if (entry.name === "process") {
             displayValue = Math.round(entry.value);
             displayName = t("nodeCard.process");
+          } else if (entry.name === "gpu") {
+            displayValue = `${entry.value.toFixed(1)}%`;
+            displayName = "GPU";
+          } else if (entry.name === "gpu_memory") {
+            displayValue = `${entry.value.toFixed(1)}%`;
+            displayName = "GPU Memory";
           }
           
           return (
@@ -217,6 +223,11 @@ const EnhancedLoadChart = ({ data = [] }: EnhancedLoadChartProps) => {
     margin: { top: 10, right: 10, bottom: 10, left: 10 },
     strokeWidth: 2,
   };
+
+  const hasGpu = Boolean(
+    (live_data?.gpu && (live_data.gpu.count > 0 || live_data.gpu.average_usage !== undefined)) ||
+    chartData.some((item) => item.gpu !== undefined && item.gpu !== null)
+  );
 
   const charts = [
     {
@@ -314,6 +325,37 @@ const EnhancedLoadChart = ({ data = [] }: EnhancedLoadChartProps) => {
       formatter: (value: number) => Math.round(value),
       type: "line",
     },
+    ...(hasGpu ? [
+      {
+        title: "GPU",
+        icon: <Layers size={16} />,
+        value: live_data?.gpu?.average_usage !== undefined ? `${live_data.gpu.average_usage.toFixed(1)}%` : "-",
+        data: chartData,
+        dataKey: "gpu",
+        color: "var(--teal-9)",
+        domain: [0, 100],
+        formatter: (value: number) => `${value.toFixed(1)}%`,
+        type: "area",
+      },
+      {
+        title: "GPU Memory",
+        icon: <MemoryStick size={16} />,
+        value: (() => {
+          const vramUsed = live_data?.gpu?.detailed_info?.reduce((acc, g) => acc + (g.memory_used || 0), 0) ?? 0;
+          const vramTotal = live_data?.gpu?.detailed_info?.reduce((acc, g) => acc + (g.memory_total || 0), 0) ?? 0;
+          if (vramTotal > 0) {
+            return `${formatBytes(vramUsed)} / ${formatBytes(vramTotal)}`;
+          }
+          return "-";
+        })(),
+        data: chartData,
+        dataKey: "gpu_memory",
+        color: "var(--cyan-9)",
+        domain: [0, 100],
+        formatter: (value: number) => `${value.toFixed(1)}%`,
+        type: "area",
+      },
+    ] : []),
   ];
 
   return (

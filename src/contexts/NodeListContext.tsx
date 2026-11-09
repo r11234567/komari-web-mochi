@@ -46,6 +46,8 @@ export type NodeBasicInfo = {
   traffic_limit?: number;
   /** 流量限制类型 */
   traffic_limit_type?: "sum" | "max" | "min" | "up" | "down";
+  /** 流量重置时间（ISO时间戳字符串） */
+  traffic_next_reset?: string;
   /** 过期时间 */
   expired_at: string;
   /** 创建时间 */

@@ -191,7 +191,7 @@ export const MobileLoadChart: React.FC<MobileLoadChartProps> = ({
             displayValue = formatBytes(entry.value) + "/s";
           } else if (chartTitle === t("nodeCard.disk")) {
             displayValue = formatBytes(entry.value);
-          } else if (entry.name === "CPU" || entry.name === "ram") {
+          } else if (entry.name === "CPU" || entry.name === "ram" || entry.name === "gpu" || entry.name === "gpu_memory") {
             displayValue = entry.value.toFixed(1) + "%";
           }
           
@@ -204,6 +204,11 @@ export const MobileLoadChart: React.FC<MobileLoadChartProps> = ({
       </div>
     );
   };
+
+  const hasGpu = Boolean(
+    (liveData?.gpu && (liveData.gpu.count > 0 || liveData.gpu.average_usage !== undefined)) ||
+    chartData.some((item) => item.gpu !== undefined && item.gpu !== null)
+  );
 
   const charts = [
     {
@@ -254,6 +259,33 @@ export const MobileLoadChart: React.FC<MobileLoadChartProps> = ({
       formatter: (value: number) => `${formatBytes(value)}/s`,
       isMultiLine: true,
     },
+    ...(hasGpu ? [
+      {
+        title: "GPU",
+        value: liveData?.gpu?.average_usage !== undefined ? `${liveData.gpu.average_usage.toFixed(1)}%` : "-",
+        data: chartData,
+        dataKey: "gpu",
+        color: "var(--teal-9)",
+        formatter: (value: number) => `${value.toFixed(1)}%`,
+        domain: [0, 100],
+      },
+      {
+        title: "GPU Memory",
+        value: (() => {
+          const vramUsed = liveData?.gpu?.detailed_info?.reduce((acc: number, g: any) => acc + (g.memory_used || 0), 0) ?? 0;
+          const vramTotal = liveData?.gpu?.detailed_info?.reduce((acc: number, g: any) => acc + (g.memory_total || 0), 0) ?? 0;
+          if (vramTotal > 0) {
+            return `${formatBytes(vramUsed)} / ${formatBytes(vramTotal)}`;
+          }
+          return "-";
+        })(),
+        data: chartData,
+        dataKey: "gpu_memory",
+        color: "var(--cyan-9)",
+        formatter: (value: number) => `${value.toFixed(1)}%`,
+        domain: [0, 100],
+      },
+    ] : []),
   ];
 
   return (

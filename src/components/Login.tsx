@@ -1,20 +1,23 @@
 import * as React from "react";
 import {
+  Button,
   Dialog,
   Flex,
+  IconButton,
   Text,
   TextField,
-  Button,
-  Box,
-  IconButton,
 } from "@radix-ui/themes";
 import { useTranslation } from "react-i18next";
 import { TablerSettings } from "./Icones/Tabler";
 import { AccountProvider, useAccount } from "@/contexts/AccountContext";
 import { usePublicInfo } from "@/contexts/PublicInfoContext";
-
-const PASSKEY_REDIRECT_KEY = "mochi:passkey-login-redirect";
-const PASSKEY_REDIRECT_MAX_AGE_MS = 60_000;
+import { useNativePasswordLogin } from "@/hooks/useNativePasswordLogin";
+import PasswordCredentialStep from "@/components/PasswordCredentialStep";
+import {
+  clearConsolePasskeyIntent,
+  consumeConsolePasskeyIntent,
+  markConsolePasskeyIntent,
+} from "@/utils/consolePasskeyIntent";
 
 type LoginDialogProps = {
   trigger?: React.ReactNode | string;
@@ -24,253 +27,290 @@ type LoginDialogProps = {
   onLoginSuccess?: () => void;
 };
 
-const LoginDialog = ({ trigger, autoOpen = false, showSettings = true, info, onLoginSuccess }: LoginDialogProps) => {
-  const InnerLayout = () => {
-    const { account, loading, error, refresh } = useAccount();
-    const [t] = useTranslation();
-    const [username, setUsername] = React.useState("");
-    const [password, setPassword] = React.useState("");
-    const [twoFac, setTwoFac] = React.useState("");
-    const [errorMsg, setErrorMsg] = React.useState("");
-    const [isLoading, setIsLoading] = React.useState(false);
-    const [require2FA, setRequire2FA] = React.useState(false);
-    const [open, setOpen] = React.useState(autoOpen || false);
-    const {publicInfo} = usePublicInfo();
-    // Validate inputs
-    const isFormValid = username.trim() !== "" && password.trim() !== "";
-    React.useEffect(() => {
-      if (autoOpen) {
-        setOpen(true);
-      }
-    }, [autoOpen]);
+type LoginFormProps = {
+  onLoginSuccess?: () => void;
+  oauthReturnTo?: string;
+  passwordMode?: "inline";
+  onPasswordLoginStart?: () => void;
+  onOAuthLoginStart?: () => void;
+  onPasskeyLoginStart?: () => void;
+};
 
-    // The passkey plugin reloads the page after authentication. Keep a short-lived
-    // marker so the refreshed, server-confirmed session follows the normal admin
-    // login destination without affecting password or OAuth login.
-    React.useEffect(() => {
-      const markPasskeyLogin = (event: MouseEvent) => {
+function oauthLoginURL(returnTo: string = "/admin"): string {
+  return `/api/oauth?returnTo=${encodeURIComponent(returnTo)}`;
+}
+
+export const LoginForm = ({
+  onLoginSuccess,
+  oauthReturnTo,
+  passwordMode = "inline",
+  onPasswordLoginStart,
+  onOAuthLoginStart,
+  onPasskeyLoginStart,
+}: LoginFormProps) => {
+  const { refresh } = useAccount();
+  const { publicInfo } = usePublicInfo();
+  const [t] = useTranslation();
+  const [username, setUsername] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [errorMsg, setErrorMsg] = React.useState("");
+  const login = useNativePasswordLogin(async () => {
+    await refresh();
+    if (onLoginSuccess) onLoginSuccess();
+    else window.location.assign("/admin");
+  }, passwordMode);
+  const isLoading = login.busy;
+  const fieldId = React.useId().replace(/:/g, "");
+  const passwordLoginEnabled = !publicInfo?.disable_password_login;
+  const isFormValid =
+    passwordLoginEnabled && username.trim() !== "" && password.trim() !== "";
+
+  const handleLogin = async () => {
+    if (!isFormValid) {
+      setErrorMsg(t("login.required", { defaultValue: "Username and password are required" }));
+      return;
+    }
+
+    onPasswordLoginStart?.();
+    setErrorMsg("");
+    if (await login.start(username, password)) setPassword("");
+  };
+
+  return (
+    <form
+      className={`km-login-form${login.pending ? " km-password-factor-pending" : ""}`}
+      onClickCapture={(event) => {
         const target = event.target;
-        if (!(target instanceof Element) || !target.closest(".km-passkey-login")) {
-          return;
-        }
-        try {
-          sessionStorage.setItem(PASSKEY_REDIRECT_KEY, String(Date.now()));
-        } catch {
-          // Storage may be unavailable in privacy-restricted browser contexts.
-        }
-      };
-      document.addEventListener("click", markPasskeyLogin, true);
-      return () => document.removeEventListener("click", markPasskeyLogin, true);
-    }, []);
-
-    React.useEffect(() => {
-      if (loading || !account?.logged_in || window.location.pathname === "/admin") {
-        return;
-      }
-      let shouldRedirect = false;
-      try {
-        const markedAt = Number(sessionStorage.getItem(PASSKEY_REDIRECT_KEY));
-        if (Number.isFinite(markedAt) && Date.now() - markedAt <= PASSKEY_REDIRECT_MAX_AGE_MS) {
-          shouldRedirect = true;
-        }
-        if (shouldRedirect) {
-          sessionStorage.removeItem(PASSKEY_REDIRECT_KEY);
-        }
-      } catch {
-        return;
-      }
-      if (shouldRedirect) {
-        window.location.assign("/admin");
-      }
-    }, [account?.logged_in, loading]);
-    // Handle login
-    const handleLogin = async () => {
-      if (!isFormValid) {
-        setErrorMsg("Username and password are required");
-        return;
-      }
-
-      setErrorMsg("");
-      setIsLoading(true);
-      try {
-        const res = await fetch("/api/login", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            username,
-            password,
-            ...(twoFac && !account?.["2fa_enabled"] ? { "2fa_code": twoFac } : {}),
-          }),
-        });
-        const data = await res.json();
-        if (res.status === 200) {
-          refresh();
-          if (typeof onLoginSuccess === "function") {
-            onLoginSuccess();
-            return
-          }
-          window.location.href = "/admin";
-        } else {
-          if (data.message === "2FA code is required") {
-            setRequire2FA(true);
+        if (target instanceof Element && target.closest(".km-passkey-login")) {
+          if (login.pending) {
+            event.preventDefault();
+            event.stopPropagation();
             return;
           }
-          setErrorMsg(data.message || "Login failed");
+          onPasskeyLoginStart?.();
         }
-      } catch (err) {
-        setErrorMsg("Network error");
-        console.error(err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    // Handle Enter key press
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !isLoading && isFormValid) {
-        e.preventDefault(); // Prevent form submission issues
-        handleLogin();
-      }
-    };
-
-    if (loading) {
-      return <Button disabled>{t("loading")}</Button>;
-    }
-    if (error || !account) {
-      return (
-        <Button disabled color="red">
-          Error
-        </Button>
-      );
-    }
-    if (account.logged_in) {
-      if (!showSettings) {
-        return null;
-      }
-      return (
-        <a href="/admin">
-          <IconButton>
-            <TablerSettings />
-          </IconButton>
-        </a>
-      );
-    }
-    return (
-      <Dialog.Root open={open} onOpenChange={setOpen}>
-        <Dialog.Trigger>
-          {trigger ? trigger : <Button>{t("login.title")}</Button>}
-        </Dialog.Trigger>
-        <Dialog.Content maxWidth="450px" className="km-login-dialog">
-          <Dialog.Title>{t("login.title")}</Dialog.Title>
-          <Dialog.Description size="2" mb="4">
-            <div className="flex justify-center flex-col gap-2">
-              <label>{t("login.desc")}</label>
-              {info && (
-                <label>
-                  {info}
-                </label>
-              )}
-            </div>
-
-          </Dialog.Description>
-          <Box
-            className="km-login-form"
-            onSubmit={(e) => {
-              e.preventDefault(); // Prevent native form submission
-              if (isFormValid && !isLoading) {
-                handleLogin();
-              }
-            }}
-          >
-            <Flex direction="column" gap="3">
-              <label>
-                <Text as="div" size="2" mb="1" weight="bold">
-                  {t("login.username")}
-                </Text>
-                <TextField.Root
-                  className="km-login-input"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="admin"
-                  disabled={isLoading}
-                  autoFocus // Focus on username by default
-                />
-              </label>
-              <label>
-                <Text as="div" size="2" mb="1" weight="bold">
-                  {t("login.password")}
-                </Text>
-                <TextField.Root
-                  className="km-login-input"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  type="password"
-                  placeholder={t("login.password_placeholder")}
-                  disabled={isLoading}
-                />
-              </label>
-              <label hidden={!require2FA}>
-                <Text as="div" size="2" mb="1" weight="bold">
-                  {t("login.two_factor")}
-                </Text>
-                <TextField.Root
-                  className="km-login-input"
-                  value={twoFac}
-                  onChange={(e) => setTwoFac(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  type="text"
-                  placeholder="000000"
-                  disabled={isLoading}
-                />
-              </label>
-              {errorMsg && (
-                <Text as="div" size="2" color="red" className="km-login-error">
-                  {errorMsg}
-                </Text>
-              )}
+      }}
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!isLoading) {
+          if (login.pending) void (login.challenge ? login.verify() : login.beginFactor());
+          else if (isFormValid) void handleLogin();
+        }
+      }}
+    >
+      <Flex direction="column" gap="3">
+        {passwordLoginEnabled && (
+          <>
+            <label hidden={login.pending}>
+              <Text as="div" size="2" mb="1" weight="bold">
+                {t("login.username")}
+              </Text>
+              <TextField.Root
+                className="km-login-input"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                id={`login-username-${fieldId}`}
+                name="username"
+                autoComplete="username"
+                placeholder="admin"
+                disabled={isLoading}
+                autoFocus
+              />
+            </label>
+            <label hidden={login.pending}>
+              <Text as="div" size="2" mb="1" weight="bold">
+                {t("login.password")}
+              </Text>
+              <TextField.Root
+                className="km-login-input"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                id={`login-password-${fieldId}`}
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                placeholder={t("login.password_placeholder")}
+                disabled={isLoading}
+              />
+            </label>
+            {login.pending && <PasswordCredentialStep login={login} />}
+            {login.pending && login.error && (
+              <Button
+                type="button"
+                variant="soft"
+                disabled={isLoading}
+                onClick={() => void login.reset()}
+              >
+                {t("login.restart", { defaultValue: "重新登录" })}
+              </Button>
+            )}
+            {(errorMsg || login.error) && (
+              <Text as="div" size="2" color="red" className="km-login-error">
+                {errorMsg || login.error}
+              </Text>
+            )}
+            {!login.pending && (
               <Button
                 type="submit"
                 disabled={isLoading || !isFormValid}
                 style={{ opacity: isLoading || !isFormValid ? 0.6 : 1 }}
-                onClick={handleLogin}
               >
-                {isLoading ? "Logging in..." : t("login.title")}
+                {isLoading ? t("loading") : t("login.continue", { defaultValue: "Continue" })}
               </Button>
-              <Button
-                onClick={() => {
-                  window.location.href = "/api/oauth";
-                }}
-                variant="soft"
-                disabled={isLoading}
-                type="button" // Prevent form submission
-              >
-                {t(
-                  "login.login_with",
-                  {
-                    provider:
-                      publicInfo?.oauth_provider === "generic"
-                        ? "OAuth"
-                        : publicInfo?.oauth_provider
-                          ? publicInfo.oauth_provider.charAt(0).toUpperCase() + publicInfo.oauth_provider.slice(1)
-                          : ""
-                  }
-                )}
-              </Button>
-            </Flex>
-          </Box>
-        </Dialog.Content>
-      </Dialog.Root>
-    );
-  };
-  return (
-    <AccountProvider>
-      <InnerLayout />
-    </AccountProvider>
+            )}
+          </>
+        )}
+        {!login.pending && publicInfo?.oauth_enable && (
+          <Button
+            onClick={() => {
+              onOAuthLoginStart?.();
+              window.location.href = oauthLoginURL(oauthReturnTo);
+            }}
+            variant={passwordLoginEnabled ? "soft" : "solid"}
+            disabled={isLoading}
+            type="button"
+          >
+            {t("login.login_with", {
+              provider:
+                publicInfo.oauth_provider === "generic"
+                  ? "OAuth"
+                  : publicInfo.oauth_provider
+                    ? publicInfo.oauth_provider.charAt(0).toUpperCase() +
+                      publicInfo.oauth_provider.slice(1)
+                    : "",
+            })}
+          </Button>
+        )}
+      </Flex>
+    </form>
   );
 };
+
+const LoginDialogContent = ({
+  trigger,
+  autoOpen = false,
+  showSettings = true,
+  info,
+  onLoginSuccess,
+}: LoginDialogProps) => {
+  const { account, loading, error } = useAccount();
+  const { publicInfo } = usePublicInfo();
+  const [t] = useTranslation();
+  const [open, setOpen] = React.useState(autoOpen);
+  const passwordLoginEnabled = !publicInfo?.disable_password_login;
+  const onlyOAuthLogin = !!publicInfo?.oauth_enable && !passwordLoginEnabled;
+
+  React.useEffect(() => {
+    if (autoOpen) {
+      setOpen(true);
+    }
+  }, [autoOpen]);
+
+  const finishLogin = React.useCallback(() => {
+    clearConsolePasskeyIntent();
+    setOpen(false);
+    if (onLoginSuccess) {
+      onLoginSuccess();
+    } else {
+      window.location.assign("/admin");
+    }
+  }, [onLoginSuccess]);
+
+  React.useEffect(() => {
+    if (loading || error || account?.logged_in !== true) return;
+    if (consumeConsolePasskeyIntent(window.location.pathname + window.location.search)) {
+      finishLogin();
+    }
+  }, [account?.logged_in, loading, error, finishLogin]);
+
+  if (loading) {
+    return <Button disabled>{t("loading")}</Button>;
+  }
+  if (error || !account) {
+    return (
+      <Button disabled color="red">
+        Error
+      </Button>
+    );
+  }
+  if (account.logged_in) {
+    if (!showSettings) {
+      return null;
+    }
+    return (
+      <a href="/admin">
+        <IconButton
+          title={t("settings.title", { defaultValue: "Settings" })}
+          aria-label={t("settings.title", { defaultValue: "Settings" })}
+        >
+          <TablerSettings />
+        </IconButton>
+      </a>
+    );
+  }
+
+  if (onlyOAuthLogin && !autoOpen) {
+    const redirect = () => {
+      clearConsolePasskeyIntent();
+      window.location.href = oauthLoginURL();
+    };
+    if (typeof trigger === "string") {
+      return <Button onClick={redirect}>{trigger}</Button>;
+    }
+    if (trigger) {
+      return (
+        <span
+          onClick={redirect}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") redirect();
+          }}
+          role="button"
+          tabIndex={0}
+          style={{ cursor: "pointer", display: "inline-flex" }}
+        >
+          {trigger}
+        </span>
+      );
+    }
+    return <Button onClick={redirect}>{t("login.title")}</Button>;
+  }
+
+  return (
+    <Dialog.Root
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) clearConsolePasskeyIntent();
+      }}
+    >
+      <Dialog.Trigger>
+        {trigger ? trigger : <Button>{t("login.title")}</Button>}
+      </Dialog.Trigger>
+      <Dialog.Content maxWidth="450px" className="km-login-dialog">
+        <Dialog.Title>{t("login.title")}</Dialog.Title>
+        <Dialog.Description size="2" mb="4">
+          <Flex direction="column" gap="2">
+            <Text>{t("login.desc")}</Text>
+            {info && <Text>{info}</Text>}
+          </Flex>
+        </Dialog.Description>
+        <LoginForm
+          onPasskeyLoginStart={() => {
+            markConsolePasskeyIntent(window.location.pathname + window.location.search);
+          }}
+          onOAuthLoginStart={() => clearConsolePasskeyIntent()}
+          onPasswordLoginStart={() => clearConsolePasskeyIntent()}
+          onLoginSuccess={finishLogin}
+        />
+      </Dialog.Content>
+    </Dialog.Root>
+  );
+};
+
+const LoginDialog = (props: LoginDialogProps) => (
+  <AccountProvider>
+    <LoginDialogContent {...props} />
+  </AccountProvider>
+);
 
 export default LoginDialog;

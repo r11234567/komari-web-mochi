@@ -146,7 +146,7 @@ export default function InstancePage() {
           </div>
         </div>
 
-        {node && <DesktopDetailsCard node={node} liveData={liveNodeData} />}
+        {node && <DesktopDetailsCard node={node} liveData={liveNodeData} isOnline={isOnline} />}
 
         <div className="node-detail-chart-card node-detail-animate" style={{ ["--delay" as any]: "320ms" }}>
           <div className="node-detail-chart-header">

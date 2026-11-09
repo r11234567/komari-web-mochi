@@ -1,7 +1,8 @@
 import { formatTrafficGB } from "@/utils/trafficDisplay";
+import { formatTrafficResetTime } from "@/utils/trafficDisplay";
 import React, { useState, useMemo, type CSSProperties } from 'react';
 import { Flex, Text, Card, IconButton, Badge } from '@radix-ui/themes';
-import { ChevronDown, ChevronUp, Cpu, MemoryStick, HardDrive, ArrowDownUp, Activity, Gauge } from 'lucide-react';
+import { ChevronDown, ChevronUp, Cpu, MemoryStick, HardDrive, ArrowDownUp, Activity, Gauge, Layers } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { formatBytes, formatUptime, getTrafficStats } from '@/utils';
 import { Link } from 'react-router-dom';
@@ -79,6 +80,12 @@ const NodeCompactCard: React.FC<NodeCompactCardProps> = ({ basic, live, online, 
     basic.traffic_limit_type
   );
   
+  const hasGpu = Boolean(
+    live?.gpu && (live.gpu.count > 0 || live.gpu.average_usage !== undefined)
+  );
+  const gpuUsage = live?.gpu?.average_usage ?? 0;
+  const trafficResetCountdown = formatTrafficResetTime(basic.traffic_next_reset, t);
+
   const trafficInfo = (basic.traffic_limit && basic.traffic_limit > 0 && basic.traffic_limit_type) ? {
     usage: trafficStats.usage,
     limit: basic.traffic_limit,
@@ -166,6 +173,12 @@ const NodeCompactCard: React.FC<NodeCompactCardProps> = ({ basic, live, online, 
                 <Activity size={12} />
                 <Text size="1">{isMobile ? load1.toFixed(1) : load1.toFixed(2)}</Text>
               </Flex>
+              {hasGpu && (
+                <Flex align="center" gap="1" title={`GPU: ${gpuUsage.toFixed(1)}%`}>
+                  <Layers size={12} />
+                  <Text size="1">{isMobile ? gpuUsage.toFixed(0) : gpuUsage.toFixed(1)}%</Text>
+                </Flex>
+              )}
             </Flex>
             <Flex align="center" gap="3" className="overflow-x-auto" style={{ cursor: 'pointer', flexWrap: 'nowrap' }} onClick={() => setIsExpanded(!isExpanded)}>
               <Flex align="center" gap="1" title="Network Speed" style={{ flexShrink: 0 }}>
@@ -175,7 +188,7 @@ const NodeCompactCard: React.FC<NodeCompactCardProps> = ({ basic, live, online, 
                 </Text>
               </Flex>
               {trafficInfo && (
-                <Flex align="center" gap="1" title={`Traffic: ${formatTrafficGB(trafficInfo.usage)} / ${formatTrafficGB(trafficInfo.limit)} (${trafficInfo.percentage.toFixed(1)}%)`} style={{ flexShrink: 0 }}>
+                <Flex align="center" gap="1" title={`Traffic: ${formatTrafficGB(trafficInfo.usage)} / ${formatTrafficGB(trafficInfo.limit)} (${trafficInfo.percentage.toFixed(1)}%)${trafficResetCountdown ? ` [${trafficResetCountdown}]` : ''}`} style={{ flexShrink: 0 }}>
                   <Gauge size={12} />
                   <Text size="1" style={{ whiteSpace: 'nowrap' }}>
                     <span>
@@ -184,6 +197,11 @@ const NodeCompactCard: React.FC<NodeCompactCardProps> = ({ basic, live, online, 
                     <span style={{ marginLeft: '4px' }}>
                       {formatTrafficGB(trafficInfo.usage, isMobile)}/{formatTrafficGB(trafficInfo.limit, isMobile)}
                     </span>
+                    {trafficResetCountdown && (
+                      <span className="ml-1 text-[10px] text-accent-10 font-mono font-medium">
+                        {trafficResetCountdown}
+                      </span>
+                    )}
                   </Text>
                 </Flex>
               )}
@@ -327,6 +345,27 @@ const NodeCompactCard: React.FC<NodeCompactCardProps> = ({ basic, live, online, 
                       <Text size="1" color="gray">TCP/UDP:</Text>
                       <Text size="1">{live.connections?.tcp ?? 0}/{live.connections?.udp ?? 0}</Text>
                     </Flex>
+                    {hasGpu && (
+                      <>
+                        <Flex justify="between" align="center">
+                          <Text size="1" color="gray">GPU:</Text>
+                          <Text size="1" weight="bold">{gpuUsage.toFixed(1)}%</Text>
+                        </Flex>
+                        {(() => {
+                          const vramUsed = live?.gpu?.detailed_info?.reduce((acc, g) => acc + (g.memory_used || 0), 0) ?? 0;
+                          const vramTotal = live?.gpu?.detailed_info?.reduce((acc, g) => acc + (g.memory_total || 0), 0) ?? 0;
+                          if (vramTotal > 0) {
+                            return (
+                              <Flex justify="between" align="center">
+                                <Text size="1" color="gray">VRAM:</Text>
+                                <Text size="1">{formatBytes(vramUsed, isMobile)}/{formatBytes(vramTotal, isMobile)}</Text>
+                              </Flex>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </>
+                    )}
                   </Flex>
                 ) : (
                   <Text size="1" color="gray">No data</Text>

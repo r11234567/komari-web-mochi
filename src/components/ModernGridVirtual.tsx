@@ -61,19 +61,27 @@ const ModernGridVirtual: React.FC<ModernGridVirtualProps> = ({
     // - 安全边距: 20px
     const baseHeight = isMobile ? 360 : 400;
     
-    // 如果有特别长的内容，增加高度
+    // 如果有特别长的内容或GPU，增加高度
     const row = rows[index];
+    let extra = 0;
     if (row && row.length > 0) {
       const hasExtraContent = row.some(node => 
         (node.tags && node.tags.split(';').length > 4) ||
         node.name.length > 25
       );
       if (hasExtraContent) {
-        return baseHeight + 40;
+        extra += 40;
+      }
+      const hasGpuContent = row.some(node => {
+        const live = liveData?.data?.[node.uuid];
+        return Boolean(live?.gpu && (live.gpu.count > 0 || live.gpu.average_usage !== undefined));
+      });
+      if (hasGpuContent) {
+        extra += 90;
       }
     }
     
-    return baseHeight;
+    return baseHeight + extra;
   }, [rows]);
   
   // 创建虚拟化器

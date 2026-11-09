@@ -1,8 +1,9 @@
 import { formatTrafficGB } from "@/utils/trafficDisplay";
+import { formatTrafficResetTime } from "@/utils/trafficDisplay";
 import React, { useMemo } from "react";
 import { Card, Flex, Text } from "@radix-ui/themes";
 import { useTranslation } from "react-i18next";
-import { Activity, HardDrive, Cpu, MemoryStick, Network, Clock, TrendingUp, TrendingDown, Zap } from "lucide-react";
+import { Activity, HardDrive, Cpu, MemoryStick, Network, Clock, TrendingUp, TrendingDown, Zap, Layers } from "lucide-react";
 import type { NodeBasicInfo } from "@/contexts/NodeListContext";
 import type { Record } from "@/types/LiveData";
 import { formatUptime } from "./Node";
@@ -115,6 +116,15 @@ const ModernCardDynamicComponent: React.FC<ModernCardDynamicProps> = ({
     trafficLimit: formatTrafficGB(basic.traffic_limit || 0), // 与校准页面统一为两位小数
     trafficLimitCompact: formatTrafficGB(basic.traffic_limit || 0, true)
   }), [basic.mem_total, basic.disk_total, basic.traffic_limit]);
+
+  // GPU 计算与自动检测
+  const hasGpu = Boolean(
+    liveData.gpu && (liveData.gpu.count > 0 || liveData.gpu.average_usage !== undefined)
+  );
+  const vramUsed = liveData.gpu?.detailed_info?.reduce((acc, g) => acc + (g.memory_used || 0), 0) ?? 0;
+  const vramTotal = liveData.gpu?.detailed_info?.reduce((acc, g) => acc + (g.memory_total || 0), 0) ?? 0;
+  const vramPercent = vramTotal > 0 ? (vramUsed / vramTotal) * 100 : 0;
+  const trafficResetCountdown = formatTrafficResetTime(basic.traffic_next_reset, t);
 
   // 进度条颜色函数
   const getProgressColor = (value: number) => {
@@ -299,13 +309,20 @@ const ModernCardDynamicComponent: React.FC<ModernCardDynamicProps> = ({
                   <Activity size={12} className="text-accent-10" />
                   <Text size="1" weight="medium" className="text-xs">Traffic</Text>
                 </Flex>
-                {Number(basic.traffic_limit) > 0 && !forceShowTrafficText && basic.traffic_limit_type && (
-                  <Text size="1" weight="bold" style={{ 
-                    color: progressColors.traffic
-                  }}>
-                    {trafficPercentage.toFixed(1)}%
-                  </Text>
-                )}
+                <Flex align="center" gap="1">
+                  {trafficResetCountdown && (
+                    <span className="text-[10px] text-accent-10 font-mono px-1 py-0 bg-accent-4/50 rounded">
+                      {trafficResetCountdown}
+                    </span>
+                  )}
+                  {Number(basic.traffic_limit) > 0 && !forceShowTrafficText && basic.traffic_limit_type && (
+                    <Text size="1" weight="bold" style={{ 
+                      color: progressColors.traffic
+                    }}>
+                      {trafficPercentage.toFixed(1)}%
+                    </Text>
+                  )}
+                </Flex>
               </Flex>
               {Number(basic.traffic_limit) > 0 && !forceShowTrafficText && basic.traffic_limit_type ? (
                 <>
@@ -381,6 +398,72 @@ const ModernCardDynamicComponent: React.FC<ModernCardDynamicProps> = ({
               </Flex>
             </Flex>
           </div>
+
+          {/* GPU & VRAM (仅在存在GPU数据时显示) */}
+          {hasGpu && (
+            <div className="modern-metric-tile bg-accent-2/50 rounded-lg sm:rounded-xl p-2 sm:p-3 border border-accent-4 hover:bg-accent-3/50 min-w-0 col-span-2">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                {/* GPU Usage */}
+                <div>
+                  <Flex justify="between" align="center" mb="2">
+                    <Flex gap="1" align="center">
+                      <Layers size={14} className="text-accent-10" />
+                      <Text size="1" weight="medium">GPU</Text>
+                    </Flex>
+                    <Text size="2" weight="bold" style={{ color: getProgressColor(liveData.gpu!.average_usage) }}>
+                      {liveData.gpu!.average_usage.toFixed(1)}%
+                    </Text>
+                  </Flex>
+                  <div className="w-full bg-accent-4 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="usage-fill-modern h-full rounded-full relative"
+                      style={{
+                        '--progress-width': `${liveData.gpu!.average_usage}%`,
+                        '--progress-color': getProgressColor(liveData.gpu!.average_usage)
+                      } as React.CSSProperties}
+                    />
+                  </div>
+                  <div className="mt-1 text-[10px] sm:text-xs truncate text-gray-500">
+                    {liveData.gpu!.detailed_info?.[0]?.name || `${liveData.gpu!.count} GPU`}
+                  </div>
+                </div>
+
+                {/* GPU VRAM */}
+                <div>
+                  <Flex justify="between" align="center" mb="2">
+                    <Flex gap="1" align="center">
+                      <MemoryStick size={14} className="text-accent-10" />
+                      <Text size="1" weight="medium">VRAM</Text>
+                    </Flex>
+                    <Text size="2" weight="bold" style={{ color: getProgressColor(vramPercent) }}>
+                      {vramPercent.toFixed(1)}%
+                    </Text>
+                  </Flex>
+                  <div className="w-full bg-accent-4 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="usage-fill-modern h-full rounded-full relative"
+                      style={{
+                        '--progress-width': `${vramPercent}%`,
+                        '--progress-color': getProgressColor(vramPercent)
+                      } as React.CSSProperties}
+                    />
+                  </div>
+                  <div className="mt-1 text-[10px] sm:text-sm whitespace-nowrap overflow-hidden">
+                    <div className="transform origin-left scale-[0.85] sm:scale-100 inline-block">
+                      <Text size="1" color="gray">
+                        {vramTotal > 0 ? (
+                          <>
+                            <span className="inline sm:hidden">{formatBytes(vramUsed, true)}/{formatBytes(vramTotal, true)}</span>
+                            <span className="hidden sm:inline">{formatBytes(vramUsed, false, 1)} / {formatBytes(vramTotal, false, 1)}</span>
+                          </>
+                        ) : "-"}
+                      </Text>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {showPingPanel && (
@@ -514,6 +597,9 @@ export const ModernCardDynamic = React.memo(ModernCardDynamicComponent, (prev, n
   if (prev.basic.traffic_limit !== next.basic.traffic_limit) return false;
   if (prev.basic.traffic_limit_type !== next.basic.traffic_limit_type) return false;
   if (prev.basic.cpu_cores !== next.basic.cpu_cores) return false;
+  if (prev.basic.traffic_next_reset !== next.basic.traffic_next_reset) return false;
+  if (Boolean(prev.live?.gpu) !== Boolean(next.live?.gpu)) return false;
+  if (prev.live?.gpu?.average_usage !== next.live?.gpu?.average_usage) return false;
   
   // 在线状态变化需要重新渲染
   if (prev.online !== next.online) return false;

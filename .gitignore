@@ -79,3 +79,6 @@ komari-web/
 
 # Local build artifacts
 komari-theme-v*.zip
+
+e2e/screenshots/
+e2e/chrome-profile/
